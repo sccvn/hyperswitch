@@ -1,0 +1,100 @@
+@startuml state-payment
+!theme plain
+
+title Payment State Machine - Hyperswitch
+
+[*] --> Created : Create payment
+
+state Created {
+  [*] --> PaymentMethodPending
+  PaymentMethodPending : Awaiting payment method
+}
+
+Created --> RequiresPaymentMethod : No payment method provided
+Created --> RequiresCustomerAction : 3DS / SCA required
+Created --> RequiresConfirmation : Manual confirmation needed
+Created --> Processing : Auto-processing enabled
+
+RequiresPaymentMethod --> RequiresCustomerAction : Payment method added\n3DS required
+RequiresPaymentMethod --> Processing : Payment method added\nNo authentication needed
+
+state RequiresCustomerAction {
+  [*] --> AwaitingAuthentication
+  AwaitingAuthentication : Customer completing 3DS
+  AwaitingAuthentication --> AuthenticationSucceeded : Customer authenticated
+  AwaitingAuthentication --> AuthenticationFailed : Authentication declined
+  AwaitingAuthentication --> Timeout : Authentication timeout
+}
+
+RequiresCustomerAction --> Processing : Authentication succeeded
+RequiresCustomerAction --> Failed : Authentication failed
+RequiresCustomerAction --> Canceled : Timeout expired
+
+RequiresConfirmation --> Processing : Merchant confirms
+RequiresConfirmation --> Canceled : Merchant cancels
+
+state Processing {
+  [*] --> Authorizing
+  Authorizing : Sending to processor
+  Authorizing --> CheckingFraud : Processor authorizes
+  CheckingFraud : Running fraud checks
+  CheckingFraud --> Authorized : Fraud checks pass
+  Authorized : Payment authorized
+}
+
+Processing --> RequiresCapture : Authorization succeeded\nManual capture mode
+Processing --> Succeeded : Payment captured automatically
+Processing --> RequiresMerchantAction : Processor requires additional info
+Processing --> Failed : Processor declined
+Processing --> PartiallyAuthorized : Partial authorization
+
+RequiresMerchantAction --> Processing : Merchant provides info
+RequiresMerchantAction --> Canceled : Merchant cancels
+
+state RequiresCapture {
+  [*] --> PendingCapture
+  PendingCapture : Awaiting capture
+  PendingCapture --> Capturing : Capture initiated
+  Capturing : Processing capture
+}
+
+RequiresCapture --> Succeeded : Captured successfully
+RequiresCapture --> Canceled : Authorization voided
+RequiresCapture --> PartiallyCaptured : Partial capture
+RequiresCapture --> Failed : Capture failed
+
+PartiallyCaptured --> RequiresCapture : Remaining amount capturable
+PartiallyCaptured --> Succeeded : Fully captured
+
+PartiallyAuthorized --> Processing : Retry for full amount
+PartiallyAuthorized --> RequiresCapture : Accept partial
+PartiallyAuthorized --> Canceled : Cancel transaction
+
+Succeeded --> [*]
+Failed --> [*]
+Canceled --> [*]
+
+note right of RequiresCustomerAction
+  **3DS/SCA Flow:**
+  - Redirect to issuer
+  - Complete challenge
+  - Return with auth result
+  - Timeout: 10 minutes default
+end note
+
+note right of Processing
+  **Retry Logic:**
+  - Network errors: Retry 3x
+  - Rate limits: Exponential backoff
+  - Processor down: Fallback connector
+end note
+
+note left of RequiresCapture
+  **Capture Modes:**
+  - Auto: Immediate capture
+  - Manual: Delayed capture
+  - Partial: Multiple captures allowed
+  - Timeout: Default 7 days
+end note
+
+@enduml

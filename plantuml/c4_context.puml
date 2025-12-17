@@ -1,0 +1,55 @@
+@startuml c4-context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+title System Context - Hyperswitch Payment Platform
+
+Person(merchant, "Merchant", "E-commerce business processing payments")
+Person(customer, "Customer", "End-user making purchases")
+Person(developer, "Developer", "Integrates payment system")
+
+System(hyperswitch, "Hyperswitch", "Open-source payment orchestration platform\n- Multi-connector routing\n- Smart payment processing\n- PCI-compliant vault")
+
+System_Ext(stripe, "Stripe", "Payment processor")
+System_Ext(adyen, "Adyen", "Payment processor")
+System_Ext(paypal, "PayPal", "Payment processor")
+System_Ext(braintree, "Braintree", "Payment processor")
+System_Ext(checkout, "Checkout.com", "Payment processor")
+System_Ext(others, "100+ Connectors", "Other payment processors")
+
+System_Ext(bank, "Banks & Card Networks", "Visa, Mastercard, banks")
+System_Ext(kms, "AWS KMS", "Key management service")
+System_Ext(email, "Email Service", "Transactional emails (SES/SMTP)")
+System_Ext(monitoring, "Monitoring", "Grafana, Prometheus, Loki")
+
+Rel(merchant, hyperswitch, "Manages payments", "REST API / Dashboard")
+Rel(developer, hyperswitch, "Integrates", "SDK / API")
+Rel(customer, hyperswitch, "Makes payments", "SDK / Hosted Checkout")
+
+Rel(hyperswitch, stripe, "Routes payments", "HTTPS")
+Rel(hyperswitch, adyen, "Routes payments", "HTTPS")
+Rel(hyperswitch, paypal, "Routes payments", "HTTPS")
+Rel(hyperswitch, braintree, "Routes payments", "HTTPS")
+Rel(hyperswitch, checkout, "Routes payments", "HTTPS")
+Rel(hyperswitch, others, "Routes payments", "HTTPS")
+
+Rel(hyperswitch, kms, "Encrypts sensitive data", "AWS SDK")
+Rel(hyperswitch, email, "Sends notifications", "SMTP / API")
+Rel(hyperswitch, monitoring, "Exports telemetry", "Prometheus / OTLP")
+
+Rel_Back(stripe, bank, "Settles transactions")
+Rel_Back(adyen, bank, "Settles transactions")
+Rel_Back(paypal, bank, "Settles transactions")
+
+note right of hyperswitch
+  **Core Features:**
+  - Smart routing (success rate, cost, latency)
+  - Multi-processor failover
+  - Payment method tokenization
+  - Fraud detection & 3DS
+  - Reconciliation & analytics
+  - Revenue recovery (retry logic)
+end note
+
+@enduml

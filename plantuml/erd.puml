@@ -1,0 +1,244 @@
+@startuml erd
+!theme plain
+
+title Database Schema - Hyperswitch Core Tables
+
+' Core payment entities
+entity payment_intent {
+  * **payment_id** : VARCHAR(64) <<PK>>
+  --
+  * merchant_id : VARCHAR(64) <<FK>>
+  customer_id : VARCHAR(64) <<FK>>
+  * amount : BIGINT
+  * currency : VARCHAR(3)
+  * status : VARCHAR(32)
+  connector : VARCHAR(64)
+  connector_payment_id : VARCHAR(128)
+  payment_method_id : VARCHAR(64) <<FK>>
+  payment_method_type : VARCHAR(32)
+  description : TEXT
+  statement_descriptor : VARCHAR(255)
+  metadata : JSONB
+  client_secret : VARCHAR(128)
+  return_url : VARCHAR(512)
+  * created_at : TIMESTAMP
+  * modified_at : TIMESTAMP
+  last_synced : TIMESTAMP
+}
+
+entity merchant_account {
+  * **merchant_id** : VARCHAR(64) <<PK>>
+  --
+  * merchant_name : VARCHAR(255)
+  * api_key : VARCHAR(128) <<UNIQUE>>
+  publishable_key : VARCHAR(128)
+  webhook_url : VARCHAR(512)
+  webhook_secret : VARCHAR(128)
+  return_url : VARCHAR(512)
+  parent_merchant_id : VARCHAR(64) <<FK>>
+  metadata : JSONB
+  routing_algorithm : JSONB
+  primary_business_details : JSONB
+  * is_enabled : BOOLEAN
+  * created_at : TIMESTAMP
+  * modified_at : TIMESTAMP
+}
+
+entity customer {
+  * **customer_id** : VARCHAR(64) <<PK>>
+  --
+  * merchant_id : VARCHAR(64) <<FK>>
+  email : VARCHAR(320)
+  phone : VARCHAR(32)
+  phone_country_code : VARCHAR(8)
+  name : VARCHAR(255)
+  description : TEXT
+  address : JSONB
+  metadata : JSONB
+  * created_at : TIMESTAMP
+  * modified_at : TIMESTAMP
+}
+
+entity payment_method {
+  * **payment_method_id** : VARCHAR(64) <<PK>>
+  --
+  * customer_id : VARCHAR(64) <<FK>>
+  * merchant_id : VARCHAR(64) <<FK>>
+  * payment_method_type : VARCHAR(32)
+  payment_method_subtype : VARCHAR(32)
+  payment_method_data : BYTEA
+  locker_id : VARCHAR(128)
+  last_used_at : TIMESTAMP
+  metadata : JSONB
+  * created_at : TIMESTAMP
+}
+
+entity refund {
+  * **refund_id** : VARCHAR(64) <<PK>>
+  --
+  * payment_id : VARCHAR(64) <<FK>>
+  * merchant_id : VARCHAR(64) <<FK>>
+  connector_refund_id : VARCHAR(128)
+  * refund_amount : BIGINT
+  * currency : VARCHAR(3)
+  * refund_status : VARCHAR(32)
+  refund_reason : TEXT
+  metadata : JSONB
+  * created_at : TIMESTAMP
+  * modified_at : TIMESTAMP
+}
+
+entity connector_config {
+  * **id** : SERIAL <<PK>>
+  --
+  * merchant_id : VARCHAR(64) <<FK>>
+  * connector_name : VARCHAR(64)
+  connector_account_id : VARCHAR(128)
+  credentials : BYTEA
+  test_mode : BOOLEAN
+  disabled : BOOLEAN
+  business_country : VARCHAR(2)
+  business_label : VARCHAR(64)
+  metadata : JSONB
+  * created_at : TIMESTAMP
+  * modified_at : TIMESTAMP
+}
+
+entity payment_attempt {
+  * **attempt_id** : VARCHAR(64) <<PK>>
+  --
+  * payment_id : VARCHAR(64) <<FK>>
+  * merchant_id : VARCHAR(64) <<FK>>
+  connector : VARCHAR(64)
+  * status : VARCHAR(32)
+  amount : BIGINT
+  currency : VARCHAR(3)
+  connector_transaction_id : VARCHAR(128)
+  authentication_type : VARCHAR(32)
+  capture_method : VARCHAR(32)
+  error_code : VARCHAR(64)
+  error_message : TEXT
+  payment_method_id : VARCHAR(64) <<FK>>
+  browser_info : JSONB
+  * created_at : TIMESTAMP
+  * modified_at : TIMESTAMP
+}
+
+entity address {
+  * **address_id** : VARCHAR(64) <<PK>>
+  --
+  * merchant_id : VARCHAR(64) <<FK>>
+  customer_id : VARCHAR(64) <<FK>>
+  line1 : VARCHAR(255)
+  line2 : VARCHAR(255)
+  line3 : VARCHAR(255)
+  city : VARCHAR(255)
+  state : VARCHAR(255)
+  zip : VARCHAR(32)
+  country : VARCHAR(2)
+  phone_number : VARCHAR(32)
+  * created_at : TIMESTAMP
+  * modified_at : TIMESTAMP
+}
+
+entity dispute {
+  * **dispute_id** : VARCHAR(64) <<PK>>
+  --
+  * payment_id : VARCHAR(64) <<FK>>
+  * merchant_id : VARCHAR(64) <<FK>>
+  connector_dispute_id : VARCHAR(128)
+  * dispute_amount : BIGINT
+  * currency : VARCHAR(3)
+  * dispute_status : VARCHAR(32)
+  dispute_stage : VARCHAR(32)
+  reason : VARCHAR(255)
+  evidence : JSONB
+  * created_at : TIMESTAMP
+  * modified_at : TIMESTAMP
+}
+
+entity mandate {
+  * **mandate_id** : VARCHAR(64) <<PK>>
+  --
+  * customer_id : VARCHAR(64) <<FK>>
+  * merchant_id : VARCHAR(64) <<FK>>
+  payment_method_id : VARCHAR(64) <<FK>>
+  mandate_type : VARCHAR(32)
+  mandate_status : VARCHAR(32)
+  connector_mandate_id : VARCHAR(128)
+  acceptance_type : VARCHAR(32)
+  acceptance_time : TIMESTAMP
+  metadata : JSONB
+  * created_at : TIMESTAMP
+}
+
+entity webhook_event {
+  * **event_id** : VARCHAR(64) <<PK>>
+  --
+  * merchant_id : VARCHAR(64) <<FK>>
+  * event_type : VARCHAR(64)
+  object_reference_id : VARCHAR(128)
+  payload : JSONB
+  delivery_attempt : INTEGER
+  delivered_at : TIMESTAMP
+  * created_at : TIMESTAMP
+}
+
+' Relationships
+
+payment_intent }o--|| merchant_account : "belongs to"
+payment_intent }o--o| customer : "placed by"
+payment_intent }o--o| payment_method : "uses"
+
+customer }o--|| merchant_account : "belongs to"
+
+payment_method }o--|| customer : "belongs to"
+payment_method }o--|| merchant_account : "belongs to"
+
+payment_attempt }o--|| payment_intent : "attempts"
+payment_attempt }o--o| payment_method : "uses"
+
+refund }o--|| payment_intent : "refunds"
+refund }o--|| merchant_account : "belongs to"
+
+dispute }o--|| payment_intent : "disputes"
+dispute }o--|| merchant_account : "belongs to"
+
+address }o--o| customer : "has"
+address }o--|| merchant_account : "belongs to"
+
+connector_config }o--|| merchant_account : "configured for"
+
+mandate }o--|| customer : "has"
+mandate }o--|| payment_method : "authorizes"
+mandate }o--|| merchant_account : "belongs to"
+
+webhook_event }o--|| merchant_account : "targets"
+
+merchant_account }o--o| merchant_account : "parent/child"
+
+note top of payment_intent
+  **Payment Intent Statuses:**
+  - created
+  - requires_payment_method
+  - requires_customer_action (3DS)
+  - requires_confirmation
+  - requires_capture
+  - processing
+  - succeeded
+  - failed
+  - canceled
+  - partially_captured
+end note
+
+note bottom of connector_config
+  **Credentials stored encrypted**
+  using AWS KMS or similar
+end note
+
+note right of payment_attempt
+  **Multiple attempts per payment**
+  for retry and fallback scenarios
+end note
+
+@enduml

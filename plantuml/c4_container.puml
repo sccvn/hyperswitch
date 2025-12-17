@@ -1,0 +1,82 @@
+@startuml c4-container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Container Diagram - Hyperswitch Architecture
+
+Person(merchant, "Merchant", "E-commerce merchant")
+Person(customer, "Customer", "Shopper")
+
+System_Boundary(hyperswitch, "Hyperswitch Platform") {
+    Container(router, "Router", "Rust / Actix-web", "Main API server\n- Payment orchestration\n- Connector routing\n- Business logic")
+    
+    Container(scheduler, "Scheduler", "Rust / Tokio", "Background job processing\n- Delayed captures\n- Webhooks\n- Retries")
+    
+    Container(drainer, "Drainer", "Rust", "Stream processor\n- Redis stream consumer\n- Async persistence\n- Event handling")
+    
+    Container(analytics, "Analytics", "Rust / Clickhouse", "Payment analytics\n- Metrics aggregation\n- Reporting\n- Dashboards")
+    
+    Container(euclid, "Euclid Engine", "WASM", "Business rules DSL\n- Routing logic\n- Merchant rules\n- Dynamic workflows")
+    
+    ContainerDb(postgres, "PostgreSQL", "PostgreSQL 14", "Primary data store\n- Payments\n- Merchants\n- Customers\n- Configs")
+    
+    ContainerDb(redis, "Redis", "Redis 7", "Caching & messaging\n- Session cache\n- Distributed locks\n- Event streams")
+    
+    ContainerDb(clickhouse, "Clickhouse", "Clickhouse", "Analytics database\n- Time-series data\n- Aggregated metrics\n- Historical analytics")
+    
+    Container(sdk_web, "Web SDK", "TypeScript", "Client-side library\n- Payment widgets\n- Hosted checkout\n- 3DS handling")
+    
+    Container(sdk_mobile, "Mobile SDK", "Kotlin / Swift", "Native mobile SDK\n- iOS & Android\n- Wallet integration")
+}
+
+System_Ext(connectors, "Payment Processors", "Stripe, Adyen, PayPal, etc.")
+System_Ext(monitoring, "Monitoring Stack", "Grafana, Prometheus, Loki, Tempo")
+System_Ext(kms, "AWS KMS", "Encryption key management")
+
+Rel(merchant, router, "Manages payments", "HTTPS / REST")
+Rel(customer, sdk_web, "Initiates payment", "HTTPS")
+Rel(customer, sdk_mobile, "Initiates payment", "HTTPS")
+
+Rel(sdk_web, router, "Submits payment", "HTTPS / REST API")
+Rel(sdk_mobile, router, "Submits payment", "HTTPS / REST API")
+
+Rel(router, postgres, "Reads / Writes", "SQL / Diesel ORM")
+Rel(router, redis, "Caches / Locks", "Redis Protocol")
+Rel(router, connectors, "Routes payments", "HTTPS")
+Rel(router, euclid, "Evaluates routing rules", "WASM Function Call")
+Rel(router, kms, "Encrypts / Decrypts", "AWS SDK")
+
+Rel(router, redis, "Publishes events", "Redis Streams (XADD)")
+Rel(drainer, redis, "Consumes events", "Redis Streams (XREAD)")
+Rel(drainer, postgres, "Persists async", "SQL")
+
+Rel(scheduler, postgres, "Queries pending jobs", "SQL")
+Rel(scheduler, router, "Triggers processing", "Internal HTTP")
+
+Rel(analytics, clickhouse, "Writes aggregated data", "SQL")
+Rel(analytics, postgres, "Reads raw data", "SQL")
+
+Rel(router, monitoring, "Exports metrics", "Prometheus / OTLP")
+Rel(scheduler, monitoring, "Exports metrics", "Prometheus")
+Rel(drainer, monitoring, "Exports metrics", "Prometheus")
+
+note right of router
+  **Router Responsibilities:**
+  - API gateway (REST + GraphQL)
+  - Payment state machine
+  - Connector selection & routing
+  - Authentication & authorization
+  - Rate limiting
+  - Webhook handling
+end note
+
+note right of euclid
+  **Dynamic Rules Engine:**
+  - Compiled to WASM for performance
+  - Merchant-specific routing logic
+  - A/B testing support
+  - Real-time rule updates
+end note
+
+@enduml

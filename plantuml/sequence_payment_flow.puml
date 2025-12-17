@@ -1,0 +1,126 @@
+@startuml sequence-payment-flow
+!theme plain
+autonumber
+
+title Payment Creation Flow - Hyperswitch
+
+actor Customer
+participant "Web SDK" as SDK
+participant "Router API" as Router
+participant "Payment Core" as Core
+participant "Routing Engine" as Euclid
+participant "Connector\n(e.g., Stripe)" as Connector
+database "PostgreSQL" as DB
+database "Redis" as Cache
+queue "Event Stream" as Events
+
+== Payment Initialization ==
+
+Customer -> SDK: Click "Pay Now"
+activate SDK
+
+SDK -> Router: POST /payments\n{amount, currency, merchant_id}
+activate Router
+
+Router -> Router: Validate API key
+Router -> Cache: GET merchant:config
+Cache --> Router: Merchant config
+
+Router -> Core: create_payment(request)
+activate Core
+
+Core -> DB: BEGIN TRANSACTION
+Core -> DB: INSERT payment_intent\nSET status = 'created'
+DB --> Core: payment_id
+
+Core -> Cache: SET payment:{id}:lock (NX, EX 30)
+Cache --> Core: OK
+
+== Connector Selection ==
+
+Core -> Euclid: evaluate_routing_rules(\nmerchant_id, amount, currency,\npayment_method, customer_location)
+activate Euclid
+
+Euclid -> Euclid: Execute WASM rules\n- Check success rates\n- Evaluate cost\n- Apply merchant preferences
+Euclid --> Core: Selected connector: "stripe"
+deactivate Euclid
+
+Core -> DB: UPDATE payment_intent\nSET connector = 'stripe'
+
+== Payment Processing ==
+
+Core -> Connector: POST /v1/payment_intents\nAuthorization: Bearer sk_xxx\n{amount, currency, payment_method}
+activate Connector
+
+Connector -> Connector: Process payment\n- Validate card\n- Check limits\n- Run fraud checks
+
+alt Payment Requires 3DS
+    Connector --> Core: 202 Accepted\n{status: requires_action,\nnext_action: {type: redirect_to_url}}
+    Core -> DB: UPDATE payment_intent\nSET status = 'requires_customer_action'
+    Core --> Router: PaymentResponse\n{requires_action: true, redirect_url}
+    Router --> SDK: 202 {redirect_url}
+    SDK -> SDK: Open 3DS iframe
+    SDK --> Customer: Show 3DS challenge
+    
+    Customer -> SDK: Complete 3DS
+    SDK -> Router: POST /payments/{id}/confirm\n{authentication_result}
+    Router -> Core: confirm_payment(payment_id)
+    Core -> Connector: POST /v1/payment_intents/{id}/confirm
+    Connector --> Core: 200 {status: succeeded}
+    
+else Payment Succeeded Immediately
+    Connector --> Core: 200 OK\n{status: succeeded,\ncharge_id: ch_xxx}
+    deactivate Connector
+    
+    Core -> DB: UPDATE payment_intent\nSET status = 'succeeded',\nconnector_payment_id = 'ch_xxx'
+end
+
+Core -> DB: COMMIT TRANSACTION
+
+== Event Publishing ==
+
+Core -> Events: XADD payment:events\n{event: payment.succeeded,\npayment_id, timestamp}
+Events --> Core: stream_id
+
+Core -> Cache: DEL payment:{id}:lock
+Core -> Cache: SET payment:{id} (payment_data, EX 3600)
+
+Core --> Router: PaymentResponse\n{payment_id, status: succeeded}
+deactivate Core
+
+Router --> SDK: 201 Created\n{payment_id, status, amount}
+deactivate Router
+
+SDK --> Customer: Show success message
+deactivate SDK
+
+== Async Processing ==
+
+Events -> "Drainer": XREAD (blocking)\nSTREAM payment:events
+activate "Drainer"
+
+"Drainer" -> DB: INSERT payment_event_log
+"Drainer" -> "Analytics": Aggregate metrics
+"Drainer" -> "Webhook Service": Trigger merchant webhook
+
+deactivate "Drainer"
+
+== Scheduled Jobs ==
+
+"Scheduler" -> DB: SELECT * FROM payments\nWHERE status = 'requires_capture'\nAND auto_capture_at < NOW()
+activate "Scheduler"
+
+"Scheduler" -> Router: POST /internal/payments/{id}/capture
+"Scheduler" -> DB: UPDATE payment_intent\nSET status = 'processing'
+
+deactivate "Scheduler"
+
+note over Router, Connector
+  **Error Handling:**
+  - Network failures: Retry with exponential backoff
+  - Idempotency: Use idempotency keys
+  - Circuit breaker: Fail fast if connector down
+  - Fallback: Route to alternate connector
+end note
+
+@enduml
