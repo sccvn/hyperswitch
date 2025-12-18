@@ -1,0 +1,289 @@
+@startuml state-payment-attempt
+!theme plain
+skinparam state {
+  BackgroundColor<<terminal>> LightGreen
+  BackgroundColor<<error>> LightCoral
+  BackgroundColor<<pending>> LightYellow
+  BackgroundColor<<action>> LightBlue
+}
+
+title Payment Attempt State Machine - Processing States
+
+[*] --> Started : create_attempt()
+
+state "Started" as Started <<pending>> {
+  Started : Entry: Attempt initialized
+  Started : Actions:
+  Started : - Prepare request data
+  Started : - Select connector
+}
+
+state "Authentication Pending" as AuthenticationPending <<action>> {
+  AuthenticationPending : Entry: 3DS authentication required
+  AuthenticationPending : Actions:
+  AuthenticationPending : - Send authentication request
+  AuthenticationPending : - Generate auth URL
+}
+
+state "Authentication Successful" as AuthenticationSuccessful <<pending>> {
+  AuthenticationSuccessful : Entry: 3DS completed
+  AuthenticationSuccessful : Actions:
+  AuthenticationSuccessful : - Store auth data
+  AuthenticationSuccessful : - Proceed to authorization
+}
+
+state "Authentication Failed" as AuthenticationFailed <<error>> {
+  AuthenticationFailed : Entry: 3DS failed
+  AuthenticationFailed : Reasons:
+  AuthenticationFailed : - Customer cancelled
+  AuthenticationFailed : - Invalid credentials
+  AuthenticationFailed : - Timeout
+}
+
+state "Authorizing" as Authorizing <<action>> {
+  Authorizing : Entry: Sending authorization request
+  Authorizing : Actions:
+  Authorizing : - Call connector API
+  Authorizing : - Wait for response
+}
+
+state "Authorized" as Authorized <<terminal>> {
+  Authorized : Entry: Authorization successful
+  Authorized : Actions:
+  Authorized : - Hold funds
+  Authorized : - Wait for capture
+  Authorized : Hold period: Until capture_before
+}
+
+state "Authorization Failed" as AuthorizationFailed <<error>> {
+  AuthorizationFailed : Entry: Authorization declined
+  AuthorizationFailed : Reasons:
+  AuthorizationFailed : - Insufficient funds
+  AuthorizationFailed : - Invalid card
+  AuthorizationFailed : - Fraud detected
+  AuthorizationFailed : - Connector error
+}
+
+state "Capture Initiated" as CaptureInitiated <<action>> {
+  CaptureInitiated : Entry: Capture request sent
+  CaptureInitiated : Actions:
+  CaptureInitiated : - Send capture request
+  CaptureInitiated : - Wait for confirmation
+}
+
+state "Charged" as Charged <<terminal>> {
+  Charged : Entry: Payment captured successfully
+  Charged : Actions:
+  Charged : - Funds transferred
+  Charged : - Update balances
+  Charged : - Trigger webhooks
+  Charged : Success: ✓
+}
+
+state "Partial Charged" as PartialCharged <<terminal>> {
+  PartialCharged : Entry: Partial amount captured
+  PartialCharged : Actions:
+  PartialCharged : - Track captured amount
+  PartialCharged : - No more captures allowed
+}
+
+state "Partial Charged And Chargeable" as PartialChargedAndChargeable <<pending>> {
+  PartialChargedAndChargeable : Entry: Partial capture with more allowed
+  PartialChargedAndChargeable : Actions:
+  PartialChargedAndChargeable : - Track captured amount
+  PartialChargedAndChargeable : - Allow additional captures
+}
+
+state "Capture Failed" as CaptureFailed <<error>> {
+  CaptureFailed : Entry: Capture declined
+  CaptureFailed : Reasons:
+  CaptureFailed : - Authorization expired
+  CaptureFailed : - Connector error
+  CaptureFailed : - Invalid amount
+}
+
+state "Void Initiated" as VoidInitiated <<action>> {
+  VoidInitiated : Entry: Void request sent
+  VoidInitiated : Actions:
+  VoidInitiated : - Send void request
+  VoidInitiated : - Release hold
+}
+
+state "Voided" as Voided <<terminal>> {
+  Voided : Entry: Authorization voided
+  Voided : Actions:
+  Voided : - Release held funds
+  Voided : - Close attempt
+}
+
+state "Void Failed" as VoidFailed <<error>> {
+  VoidFailed : Entry: Void declined
+  VoidFailed : Reasons:
+  VoidFailed : - Already captured
+  VoidFailed : - Connector error
+}
+
+state "COD Initiated" as CODInitiated <<action>> {
+  CODInitiated : Entry: Cash on delivery
+  CODInitiated : Actions:
+  CODInitiated : - Mark as COD
+  CODInitiated : - Wait for fulfillment
+}
+
+state "Pending" as Pending <<pending>> {
+  Pending : Entry: Async processing
+  Pending : Actions:
+  Pending : - Wait for webhook
+  Pending : - Poll status
+  Pending : Timeout: 30 minutes
+}
+
+state "Confirmation Awaited" as ConfirmationAwaited <<pending>> {
+  ConfirmationAwaited : Entry: Waiting for confirmation
+  ConfirmationAwaited : Actions:
+  ConfirmationAwaited : - Send confirmation request
+  ConfirmationAwaited : - Wait for response
+}
+
+state "Payment Method Awaited" as PaymentMethodAwaited <<pending>> {
+  PaymentMethodAwaited : Entry: Waiting for PM details
+  PaymentMethodAwaited : Actions:
+  PaymentMethodAwaited : - Request PM from customer
+  PaymentMethodAwaited : - Validate PM data
+}
+
+state "Failure" as Failure <<error>> {
+  Failure : Entry: General failure
+  Failure : Final State: ✗
+}
+
+state "Unresolved" as Unresolved <<pending>> {
+  Unresolved : Entry: Status unclear
+  Unresolved : Actions:
+  Unresolved : - Manual review needed
+  Unresolved : - Contact connector
+}
+
+state "Auto Refunded" as AutoRefunded <<terminal>> {
+  AutoRefunded : Entry: Automatic refund issued
+  AutoRefunded : Reasons:
+  AutoRefunded : - Merchant policy
+  AutoRefunded : - Duplicate payment
+  AutoRefunded : - Partial authorization declined
+}
+
+' Transitions from Started
+Started --> PaymentMethodAwaited : payment_method_required()
+Started --> ConfirmationAwaited : confirmation_required()
+Started --> AuthenticationPending : authentication_required()
+Started --> Authorizing : direct_authorization()
+Started --> Pending : async_processing()
+
+' Transitions from PaymentMethodAwaited
+PaymentMethodAwaited --> AuthenticationPending : payment_method_provided()
+PaymentMethodAwaited --> Failure : timeout()
+
+' Transitions from ConfirmationAwaited
+ConfirmationAwaited --> AuthenticationPending : confirmed()
+ConfirmationAwaited --> Failure : declined()
+
+' Transitions from AuthenticationPending
+AuthenticationPending --> AuthenticationSuccessful : auth_completed()
+AuthenticationPending --> AuthenticationFailed : auth_failed()
+AuthenticationPending --> AuthenticationFailed : timeout()
+
+' Transitions from AuthenticationSuccessful
+AuthenticationSuccessful --> Authorizing : proceed_to_authorize()
+
+' Transitions from Authorizing
+Authorizing --> Authorized : authorization_approved()
+Authorizing --> AuthorizationFailed : authorization_declined()
+Authorizing --> Pending : async_response()
+Authorizing --> Unresolved : connector_timeout()
+
+' Transitions from Authorized
+Authorized --> CaptureInitiated : capture_request()
+Authorized --> VoidInitiated : void_request()
+Authorized --> Voided : auto_void()\n[capture_before expired]
+Authorized --> Charged : auto_capture()\n[capture_method=automatic]
+
+' Transitions from CaptureInitiated
+CaptureInitiated --> Charged : capture_successful()\n[full_amount]
+CaptureInitiated --> PartialCharged : capture_successful()\n[partial, final]
+CaptureInitiated --> PartialChargedAndChargeable : capture_successful()\n[partial, not final]
+CaptureInitiated --> CaptureFailed : capture_declined()
+
+' Transitions from PartialChargedAndChargeable
+PartialChargedAndChargeable --> CaptureInitiated : capture_request()
+PartialChargedAndChargeable --> PartialCharged : finalize()
+PartialChargedAndChargeable --> Charged : capture_remaining()
+
+' Transitions from VoidInitiated
+VoidInitiated --> Voided : void_successful()
+VoidInitiated --> VoidFailed : void_declined()
+
+' Transitions from Pending
+Pending --> Authorized : webhook_authorized()
+Pending --> Charged : webhook_charged()
+Pending --> Failure : webhook_failed()
+Pending --> Unresolved : timeout()
+
+' Transitions from Unresolved
+Unresolved --> Charged : manual_resolution_success()
+Unresolved --> Failure : manual_resolution_failure()
+
+' Transitions to AutoRefunded
+Charged --> AutoRefunded : auto_refund_triggered()
+
+' Terminal states
+Charged --> [*]
+PartialCharged --> [*]
+Voided --> [*]
+Failure --> [*]
+AuthenticationFailed --> [*]
+AuthorizationFailed --> [*]
+CaptureFailed --> [*]
+VoidFailed --> [*]
+AutoRefunded --> [*]
+
+note right of Authorizing
+  **Connector Call:**
+  - Timeout: 30s
+  - Retry: 3 attempts
+  - Fallback: Next connector
+  
+  **Idempotency:**
+  - connector_request_reference_id
+  - Prevents duplicate charges
+end note
+
+note right of Authorized
+  **Authorization Hold:**
+  - Duration: capture_before timestamp
+  - Default: 7 days
+  - Auto-void after expiration
+  
+  **Partial Authorization:**
+  - If enabled, can approve partial amount
+  - Merchant decides to accept or decline
+end note
+
+note bottom of Charged
+  **Success Metrics:**
+  - Latency tracked
+  - Success rate updated
+  - Connector performance logged
+  
+  **Webhooks:**
+  - payment.succeeded
+  - payment.captured
+end note
+
+legend right
+  |<back:LightGreen>   </back>| Terminal State (Success) |
+  |<back:LightCoral>   </back>| Terminal State (Error) |
+  |<back:LightYellow>   </back>| Pending State |
+  |<back:LightBlue>   </back>| Action State |
+endlegend
+
+@enduml

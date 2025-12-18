@@ -1,0 +1,385 @@
+@startuml class-payment-domain
+!theme plain
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+
+title Hyperswitch Payment Domain - Class Diagram
+
+package "Payment Domain Models (crates/diesel_models)" {
+  
+  class PaymentIntent <<Entity>> {
+    ' Primary Key
+    +payment_id: String (v1) / id: GlobalId (v2)
+    
+    ' Core Fields
+    +merchant_id: MerchantId
+    +status: IntentStatus
+    +amount: MinorUnit
+    +currency: Currency
+    +amount_captured: Option<MinorUnit>
+    
+    ' Customer & Profile
+    +customer_id: Option<GlobalCustomerId>
+    +profile_id: ProfileId
+    +business_country: Option<CountryAlpha2>
+    +business_label: Option<String>
+    
+    ' Payment Configuration
+    +capture_method: Option<CaptureMethod>
+    +authentication_type: Option<AuthenticationType>
+    +setup_future_usage: Option<FutureUsage>
+    
+    ' Metadata & Details
+    +description: Option<Description>
+    +return_url: Option<Url>
+    +metadata: Option<SecretSerdeValue>
+    +order_details: Option<Vec<OrderDetailsWithAmount>>
+    +allowed_payment_method_types: Option<SecretSerdeValue>
+    
+    ' Routing & Connector
+    +routing_algorithm_id: Option<String>
+    +connector_metadata: Option<SecretSerdeValue>
+    
+    ' Timestamps
+    +created_at: PrimitiveDateTime
+    +modified_at: PrimitiveDateTime
+    +last_synced: Option<PrimitiveDateTime>
+    
+    ' Attempt Management
+    +active_attempt_id: Option<GlobalAttemptId>
+    +attempt_count: i16
+    +authorization_count: Option<i32>
+    
+    ' Advanced Features
+    +feature_metadata: Option<FeatureMetadata>
+    +frm_metadata: Option<SecretSerdeValue>
+    +enable_partial_authorization: Option<Bool>
+    +incremental_authorization_allowed: Option<Bool>
+    
+    --Methods--
+    +transition_status(new_status: IntentStatus): Result<()>
+    +can_capture(): bool
+    +can_refund(): bool
+    +is_terminal_status(): bool
+  }
+  
+  class PaymentAttempt <<Entity>> {
+    ' Primary Key
+    +attempt_id: String (v1) / id: GlobalAttemptId (v2)
+    +payment_id: String
+    
+    ' Core Fields
+    +merchant_id: MerchantId
+    +status: AttemptStatus
+    +amount: MinorUnit
+    +currency: Currency
+    +net_amount: MinorUnit
+    
+    ' Connector Details
+    +connector: Option<String>
+    +merchant_connector_id: Option<MerchantConnectorAccountId>
+    +connector_transaction_id: Option<ConnectorTransactionId>
+    +connector_payment_id: Option<String>
+    +connector_request_reference_id: Option<String>
+    +connector_response_reference_id: Option<String>
+    
+    ' Payment Method
+    +payment_method: Option<PaymentMethod>
+    +payment_method_type: Option<PaymentMethodType>
+    +payment_method_id: Option<PaymentMethodId>
+    +payment_method_data: Option<EncryptedData>
+    +payment_token: Option<String>
+    
+    ' Amount Tracking
+    +amount_capturable: MinorUnit
+    +amount_captured: Option<MinorUnit>
+    +amount_to_capture: Option<MinorUnit>
+    +authorized_amount: Option<MinorUnit>
+    
+    ' Capture Configuration
+    +capture_method: Option<CaptureMethod>
+    +capture_before: Option<PrimitiveDateTime>
+    +multiple_capture_count: Option<i16>
+    
+    ' Error Handling
+    +error_code: Option<String>
+    +error_message: Option<String>
+    +error_reason: Option<String>
+    +issuer_error_code: Option<String>
+    +issuer_error_message: Option<String>
+    +network_error_message: Option<String>
+    
+    ' Network Details
+    +card_network: Option<CardNetwork>
+    +network_transaction_id: Option<String>
+    +network_advice_code: Option<String>
+    +network_decline_code: Option<String>
+    
+    ' Authentication
+    +authentication_type: Option<AuthenticationType>
+    +authentication_id: Option<String>
+    +authentication_connector: Option<String>
+    +authentication_data: Option<AuthenticationData>
+    +external_three_ds_authentication_attempted: Option<Bool>
+    
+    ' Surcharge & Tax
+    +surcharge_amount: Option<MinorUnit>
+    +tax_amount: Option<MinorUnit>
+    +order_tax_amount: Option<MinorUnit>
+    +shipping_cost: Option<MinorUnit>
+    
+    ' Browser & Client
+    +browser_info: Option<BrowserInformation>
+    +client_source: Option<String>
+    +client_version: Option<String>
+    
+    ' Timestamps
+    +created_at: PrimitiveDateTime
+    +modified_at: PrimitiveDateTime
+    
+    ' Mandate & Recurring
+    +mandate_id: Option<MandateId>
+    +connector_mandate_detail: Option<ConnectorMandateReferenceId>
+    
+    ' Advanced
+    +connector_metadata: Option<SecretSerdeValue>
+    +feature_metadata: Option<FeatureMetadata>
+    +preprocessing_step_id: Option<String>
+    +charges: Option<ChargeRefunds>
+    
+    --Methods--
+    +get_optional_connector_transaction_id(): Option<&str>
+    +is_terminal_status(): bool
+    +requires_customer_action(): bool
+  }
+  
+  class Refund <<Entity>> {
+    ' Primary Keys
+    +internal_reference_id: String
+    +refund_id: String (merchant reference)
+    
+    ' Relations
+    +payment_id: PaymentId
+    +merchant_id: MerchantId
+    +attempt_id: String
+    
+    ' Connector Info
+    +connector: String
+    +connector_transaction_id: ConnectorTransactionId
+    +connector_refund_id: Option<ConnectorTransactionId>
+    +external_reference_id: Option<String>
+    
+    ' Amounts
+    +total_amount: MinorUnit
+    +currency: Currency
+    +refund_amount: MinorUnit
+    
+    ' Status & Type
+    +refund_type: RefundType
+    +refund_status: RefundStatus
+    +sent_to_gateway: bool
+    
+    ' Error Handling
+    +refund_error_message: Option<String>
+    +refund_error_code: Option<String>
+    
+    ' Additional Info
+    +description: Option<String>
+    +metadata: Option<SecretSerdeValue>
+    +refund_arn: Option<String>
+    +refund_reason: Option<String>
+    
+    ' Timestamps
+    +created_at: PrimitiveDateTime
+    +modified_at: PrimitiveDateTime
+    
+    --Methods--
+    +is_terminal_status(): bool
+    +can_cancel(): bool
+  }
+  
+  class Customer <<Entity>> {
+    +customer_id: CustomerId
+    +merchant_id: MerchantId
+    +email: Option<Email>
+    +name: Option<SecretString>
+    +phone: Option<PhoneNumber>
+    +phone_country_code: Option<String>
+    +description: Option<String>
+    +metadata: Option<SecretSerdeValue>
+    +created_at: PrimitiveDateTime
+    +modified_at: PrimitiveDateTime
+    +address_id: Option<AddressId>
+  }
+  
+  class PaymentMethod <<Entity>> {
+    +payment_method_id: PaymentMethodId
+    +customer_id: CustomerId
+    +merchant_id: MerchantId
+    +payment_method: PaymentMethod
+    +payment_method_type: Option<PaymentMethodType>
+    +payment_method_data: EncryptedData
+    +locker_id: Option<String>
+    +last_used_at: PrimitiveDateTime
+    +created_at: PrimitiveDateTime
+    +metadata: Option<SecretSerdeValue>
+  }
+  
+  class MerchantConnectorAccount <<Entity>> {
+    +id: i32
+    +merchant_id: MerchantId
+    +connector_name: String
+    +connector_account_details: EncryptedData
+    +test_mode: Option<bool>
+    +disabled: Option<bool>
+    +merchant_connector_id: MerchantConnectorAccountId
+    +payment_methods_enabled: Option<Vec<PaymentMethodsEnabled>>
+    +metadata: Option<SecretSerdeValue>
+    +connector_type: ConnectorType
+    +connector_label: Option<String>
+    +business_country: Option<CountryAlpha2>
+    +business_label: Option<String>
+    +business_sub_label: Option<String>
+    +frm_configs: Option<Vec<FrmConfigs>>
+    +created_at: PrimitiveDateTime
+    +modified_at: PrimitiveDateTime
+    +connector_webhook_details: Option<WebhookDetails>
+    +profile_id: Option<ProfileId>
+    +applepay_verified_domains: Option<Vec<String>>
+    +pm_auth_config: Option<SecretSerdeValue>
+    +status: ConnectorStatus
+  }
+}
+
+package "Status Enums" {
+  
+  enum IntentStatus <<Enum>> {
+    RequiresPaymentMethod
+    RequiresConfirmation
+    RequiresCustomerAction
+    Processing
+    RequiresCapture
+    PartiallyCaptured
+    PartiallyCapturedAndCapturable
+    Succeeded
+    Failed
+    Cancelled
+    RequiresMerchantAction
+    --Methods--
+    +can_transition_to(new: IntentStatus): bool
+    +is_terminal(): bool
+  }
+  
+  enum AttemptStatus <<Enum>> {
+    Started
+    AuthenticationPending
+    AuthenticationSuccessful
+    AuthenticationFailed
+    Authorized
+    AuthorizationFailed
+    Charged
+    Authorizing
+    CodInitiated
+    Voided
+    VoidInitiated
+    CaptureInitiated
+    CaptureFailed
+    VoidFailed
+    AutoRefunded
+    PartialCharged
+    PartialChargedAndChargeable
+    Unresolved
+    Pending
+    Failure
+    PaymentMethodAwaited
+    ConfirmationAwaited
+    DeviceDataCollectionPending
+    --Methods--
+    +is_terminal(): bool
+    +requires_customer_action(): bool
+  }
+  
+  enum RefundStatus <<Enum>> {
+    ManualReview
+    Pending
+    Success
+    Failure
+    TransactionFailure
+    --Methods--
+    +is_terminal(): bool
+  }
+  
+  enum CaptureMethod <<Enum>> {
+    Automatic
+    Manual
+    ManualMultiple
+    Scheduled
+  }
+  
+  enum PaymentMethod <<Enum>> {
+    Card
+    CardRedirect
+    PayLater
+    Wallet
+    BankRedirect
+    BankTransfer
+    Crypto
+    BankDebit
+    Reward
+    RealTimePayment
+    Upi
+    Voucher
+    OpenBanking
+    GiftCard
+  }
+  
+  enum RefundType <<Enum>> {
+    InstantRefund
+    RegularRefund
+    RetryRefund
+  }
+}
+
+' Relationships
+PaymentIntent "1" --> "0..*" PaymentAttempt : has attempts
+PaymentIntent "1" --> "0..*" Refund : has refunds
+PaymentAttempt "1" --> "0..*" Refund : refunded via
+PaymentIntent --> IntentStatus : status
+PaymentAttempt --> AttemptStatus : status
+Refund --> RefundStatus : refund_status
+PaymentIntent "1" --> "0..1" Customer : belongs to
+PaymentAttempt "1" --> "0..1" PaymentMethod : uses
+PaymentAttempt "1" --> "0..1" MerchantConnectorAccount : processed by
+PaymentIntent --> CaptureMethod : capture_method
+PaymentAttempt --> PaymentMethod : payment_method
+
+note right of PaymentIntent
+  Central entity for payment lifecycle
+  Tracks overall payment status
+  Immutable after creation (mostly)
+  Multiple attempts for retry/fallback
+end note
+
+note right of PaymentAttempt
+  Represents single payment attempt
+  Mutable during processing
+  Stores connector-specific data
+  Terminal states: Charged, Failed, Voided
+end note
+
+note right of Refund
+  Linked to specific payment attempt
+  Supports partial refunds
+  Independent lifecycle from payment
+  Can have multiple refunds per payment
+end note
+
+note bottom of IntentStatus
+  State machine transitions:
+  - RequiresPaymentMethod → RequiresConfirmation
+  - RequiresConfirmation → Processing
+  - Processing → Succeeded/Failed
+  - Succeeded → PartiallyCaptured (if manual capture)
+end note
+
+@enduml

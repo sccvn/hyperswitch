@@ -1,0 +1,106 @@
+@startuml c4-component-router-detailed
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+LAYOUT_WITH_LEGEND()
+
+title Hyperswitch Router - Detailed Component Architecture
+
+Container_Boundary(router, "Router Crate (Main API Server)") {
+  
+  Container_Boundary(routes, "HTTP Routes Layer") {
+    Component(payment_routes, "Payment Routes", "Actix-web Handlers", "POST /payments\nPOST /payments/:id/confirm\nGET /payments/:id")
+    Component(refund_routes, "Refund Routes", "Actix-web Handlers", "POST /refunds\nGET /refunds/:id")
+    Component(customer_routes, "Customer Routes", "Actix-web Handlers", "CRUD operations for customers")
+    Component(payment_method_routes, "Payment Method Routes", "Actix-web Handlers", "Manage payment methods")
+    Component(webhook_routes, "Webhook Routes", "Actix-web Handlers", "POST /webhooks/:connector")
+  }
+  
+  Container_Boundary(core, "Core Business Logic") {
+    Component(payments_core, "Payments Core", "Orchestrator", "Payment lifecycle management\nsrc/core/payments.rs\nState machine coordination")
+    Component(refunds_core, "Refunds Core", "Orchestrator", "Refund processing logic\nsrc/core/refunds.rs")
+    Component(routing_core, "Routing Engine", "Decision Engine", "Connector selection\nFallback strategies\nsrc/core/routing/")
+    Component(auth_core, "Authentication", "Security", "API key validation\n3DS authentication\nsrc/core/authentication.rs")
+    Component(fraud_check_core, "Fraud Check", "Risk Management", "FRM integration\nsrc/core/fraud_check.rs")
+  }
+  
+  Container_Boundary(services, "Domain Services") {
+    Component(payment_service, "Payment Service", "Business Logic", "Payment creation\nStatus transitions\nValidation rules")
+    Component(customer_service, "Customer Service", "Business Logic", "Customer management\nProfile handling")
+    Component(mandate_service, "Mandate Service", "Business Logic", "Recurring payments\nMandate management")
+    Component(surcharge_service, "Surcharge Service", "Business Logic", "Fee calculation\nTax computation")
+  }
+  
+  Container_Boundary(connector_layer, "Connector Integration") {
+    Component(connector_dispatcher, "Connector Dispatcher", "Factory", "Instantiates connectors\nRoutes to correct impl")
+    Component(connector_interface, "Connector Interface", "Trait Definition", "PaymentConnectorIntegration\nRefundConnectorIntegration")
+    Component(connector_utils, "Connector Utils", "Helpers", "Request transformation\nResponse parsing")
+  }
+  
+  Container_Boundary(storage_layer, "Storage Layer") {
+    Component(payment_repo, "Payment Repository", "Data Access", "CRUD for payment_intent\npayment_attempt tables")
+    Component(refund_repo, "Refund Repository", "Data Access", "CRUD for refund table")
+    Component(customer_repo, "Customer Repository", "Data Access", "CRUD for customers")
+    Component(cache_manager, "Cache Manager", "Redis", "Session caching\nConfig caching")
+  }
+  
+  Container_Boundary(middleware, "Middleware & Utilities") {
+    Component(auth_middleware, "Auth Middleware", "Security", "JWT validation\nAPI key check")
+    Component(logging, "Logging", "Observability", "Structured logging\nRequest tracing")
+    Component(metrics, "Metrics", "Monitoring", "Prometheus metrics\nLatency tracking")
+    Component(error_handler, "Error Handler", "Resilience", "Error transformation\nRetry logic")
+  }
+}
+
+' External Dependencies
+Container_Ext(hyperswitch_connectors, "Hyperswitch Connectors", "100+ Payment Processors", "Stripe, PayPal, Adyen...")
+Container_Ext(diesel_models, "Diesel Models", "ORM Layer", "Database models")
+Container_Ext(api_models, "API Models", "DTOs", "Request/Response types")
+Container_Ext(domain_models, "Domain Models", "Core Types", "Business entities")
+Container_Ext(storage_impl, "Storage Impl", "Repository Impl", "PostgreSQL/Redis access")
+
+' Database & Cache
+ContainerDb(postgres, "PostgreSQL", "Relational DB", "Payment data\nCustomer data\nConnector configs")
+ContainerDb(redis, "Redis", "Cache", "Sessions\nRateLimiting\nLocks")
+
+' Relationships - Routes to Core
+Rel(payment_routes, payments_core, "Calls", "HTTP Request")
+Rel(refund_routes, refunds_core, "Calls", "HTTP Request")
+Rel(webhook_routes, payments_core, "Updates", "Webhook payload")
+
+' Core to Services
+Rel(payments_core, payment_service, "Uses", "Business rules")
+Rel(payments_core, routing_core, "Queries", "Connector selection")
+Rel(payments_core, auth_core, "Validates", "3DS auth")
+Rel(payments_core, fraud_check_core, "Checks", "Risk assessment")
+Rel(refunds_core, payment_service, "Validates", "Refund eligibility")
+
+' Services to Storage
+Rel(payment_service, payment_repo, "Persists", "Save/Update")
+Rel(payment_service, cache_manager, "Caches", "Session data")
+Rel(customer_service, customer_repo, "CRUD", "Customer ops")
+
+' Connector Integration
+Rel(payments_core, connector_dispatcher, "Dispatches", "Payment request")
+Rel(connector_dispatcher, connector_interface, "Uses", "Trait calls")
+Rel(connector_interface, hyperswitch_connectors, "Invokes", "Connector impl")
+Rel(connector_utils, connector_interface, "Assists", "Transformations")
+
+' Storage to External
+Rel(payment_repo, storage_impl, "Uses", "DB operations")
+Rel(storage_impl, diesel_models, "Maps", "ORM models")
+Rel(storage_impl, postgres, "Queries", "SQL")
+Rel(cache_manager, redis, "Get/Set", "Cache ops")
+
+' Middleware Flow
+Rel(payment_routes, auth_middleware, "Passes through", "Auth check")
+Rel(payment_routes, logging, "Logs", "Request/Response")
+Rel(payments_core, metrics, "Tracks", "Latency/Success")
+Rel(payments_core, error_handler, "Handles", "Errors")
+
+' External Models
+Rel(payment_routes, api_models, "Deserializes", "Request DTOs")
+Rel(payment_service, domain_models, "Uses", "Domain types")
+Rel(payment_repo, diesel_models, "Returns", "DB models")
+
+SHOW_LEGEND()
+
+@enduml

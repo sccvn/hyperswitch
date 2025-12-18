@@ -1,0 +1,1118 @@
+@startuml erd-detailed@startuml erd-detailed
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@endumlmca ||--o{ dispute : "manages"mca ||--o{ refund : "handles"mca ||--o{ attempt : "processes"mca ||--o{ mandate : "enforces"pm ||--o{ mandate : "has mandates"customer ||--o{ mandate : "authorizes"customer ||--o{ address : "has addresses"customer ||--o{ pm : "owns"attempt ||--o{ dispute : "disputed"attempt }o--o| pm : "uses"attempt }o--|| mca : "processed by"attempt ||--o{ refund : "refunded via"payment }o--|| customer : "belongs to"payment ||--o{ dispute : "may have"payment ||--o{ refund : "has refunds"payment ||--|{ attempt : "has attempts"profile ||--o{ dispute : "disputes"profile ||--o{ mca : "uses"profile ||--o{ refund : "issues"profile ||--o{ attempt : "processes"profile ||--o{ payment : "handles"merchant ||--o{ mandate : "manages"merchant ||--o{ address : "owns"merchant ||--o{ mca : "configures"merchant ||--o{ customer : "has customers"merchant ||--o{ payment : "processes"merchant ||--o{ profile : "has profiles"' Relationships}  - profile_id → business_profile(profile_id)  - merchant_connector_id → merchant_connector_account(merchant_connector_id)  - merchant_id → merchant_account(merchant_id)  - attempt_id → payment_attempt(attempt_id)  - payment_id → payment_intent(payment_id)  Foreign Keys:  --  - idx_connector_dispute_id  - idx_merchant_id  - idx_payment_id  - idx_dispute_id <<UNIQUE>>  Indexes:  --  dispute_amount : BIGINT <<not null>>  merchant_connector_id : VARCHAR(64) <<FK>>  profile_id : VARCHAR(64) <<FK>>  evidence : JSONB  connector : VARCHAR(64) <<not null>>  modified_at : TIMESTAMP <<not null>>  created_at : TIMESTAMP <<not null>>  connector_updated_at : TIMESTAMP  connector_created_at : TIMESTAMP  challenge_required_by : TIMESTAMP  connector_reason_code : VARCHAR(64)  connector_reason : TEXT  connector_dispute_id : VARCHAR(128) <<not null>>  connector_status : VARCHAR(128) <<not null>>  merchant_id : VARCHAR(64) <<FK>> <<not null>>  attempt_id : VARCHAR(64) <<FK>> <<not null>>  payment_id : VARCHAR(64) <<FK>> <<not null>>  dispute_status : VARCHAR(32) <<not null>>  dispute_stage : VARCHAR(32) <<not null>>  currency : VARCHAR(3) <<not null>>  amount : BIGINT <<not null>>  --  *dispute_id : VARCHAR(64) <<PK>>entity "dispute" as dispute {}  - mandate_type IN ('single_use', 'multi_use')  - mandate_status IN ('active', 'inactive', 'pending', 'revoked')  Constraints:  --  - merchant_connector_id → merchant_connector_account(merchant_connector_id)  - payment_method_id → payment_methods(payment_method_id)  - merchant_id → merchant_account(merchant_id)  - customer_id → customers(customer_id)  Foreign Keys:  --  - idx_payment_method_id  - idx_merchant_id  - idx_customer_id  - idx_mandate_id <<UNIQUE>>  Indexes:  --  updated_by : VARCHAR(64)  merchant_connector_id : VARCHAR(64) <<FK>>  original_payment_id : VARCHAR(64)  connector_mandate_ids : JSONB  metadata : JSONB  end_date : TIMESTAMP  start_date : TIMESTAMP  connector_mandate_id : VARCHAR(128)  connector : VARCHAR(64) <<not null>>  amount_captured : BIGINT  mandate_currency : VARCHAR(3)  mandate_amount : BIGINT  created_at : TIMESTAMP <<not null>>  previous_attempt_id : VARCHAR(64)  network_transaction_id : VARCHAR(128)  customer_user_agent : TEXT  customer_ip_address : VARCHAR(45) <<encrypted>>  customer_acceptance : JSONB  mandate_type : VARCHAR(32) <<not null>>  mandate_status : VARCHAR(32) <<not null>>  payment_method_id : VARCHAR(64) <<FK>> <<not null>>  merchant_id : VARCHAR(64) <<FK>> <<not null>>  customer_id : VARCHAR(64) <<FK>> <<not null>>  --  *mandate_id : VARCHAR(64) <<PK>>entity "mandate" as mandate {}  - merchant_id → merchant_account(merchant_id)  - customer_id → customers(customer_id)  Foreign Keys:  --  - idx_merchant_id  - idx_customer_id  - idx_address_id <<UNIQUE>>  Indexes:  --  updated_by : VARCHAR(64)  email : VARCHAR(255) <<encrypted>>  merchant_id : VARCHAR(64) <<FK>> <<not null>>  customer_id : VARCHAR(64) <<FK>>  modified_at : TIMESTAMP <<not null>>  created_at : TIMESTAMP <<not null>>  country_code : VARCHAR(4)  phone_number : VARCHAR(20) <<encrypted>>  last_name : VARCHAR(255) <<encrypted>>  first_name : VARCHAR(255) <<encrypted>>  zip : VARCHAR(16) <<encrypted>>  state : VARCHAR(128)  line3 : VARCHAR(255) <<encrypted>>  line2 : VARCHAR(255) <<encrypted>>  line1 : VARCHAR(255) <<encrypted>>  country : VARCHAR(2)  city : VARCHAR(128)  --  *address_id : VARCHAR(64) <<PK>>entity "address" as address {}  - status IN ('active', 'inactive', 'deleted')  - connector_type IN ('payment_processor', 'payment_vas', 'authentication')  Constraints:  --  - profile_id → business_profile(profile_id)  - merchant_id → merchant_account(merchant_id)  Foreign Keys:  --  - idx_profile_id  - idx_merchant_id_connector_name  - idx_merchant_connector_id <<UNIQUE>>  Indexes:  --  additional_merchant_data : JSONB <<encrypted>>  connector_wallets_details : JSONB <<encrypted>>  status : VARCHAR(32) <<not null>>  pm_auth_config : JSONB <<encrypted>>  applepay_verified_domains : TEXT[]  profile_id : VARCHAR(64) <<FK>>  connector_webhook_details : JSONB  modified_at : TIMESTAMP <<not null>>  created_at : TIMESTAMP <<not null>>  frm_configs : JSONB  business_sub_label : VARCHAR(64)  business_label : VARCHAR(64)  business_country : VARCHAR(2)  connector_label : VARCHAR(64)  connector_type : VARCHAR(32) <<not null>>  metadata : JSONB  payment_methods_enabled : JSONB  merchant_connector_id : VARCHAR(64) <<UNIQUE>> <<not null>>  disabled : BOOLEAN  test_mode : BOOLEAN  connector_account_details : BYTEA <<encrypted>> <<not null>>  connector_name : VARCHAR(64) <<not null>>  merchant_id : VARCHAR(64) <<FK>> <<not null>>  --  *id : SERIAL <<PK>>entity "merchant_connector_account" as mca {}  - status IN ('active', 'inactive', 'deleted')  - payment_method NOT NULL  Constraints:  --  - merchant_id → merchant_account(merchant_id)  - customer_id → customers(customer_id)  Foreign Keys:  --  - idx_last_used_at  - idx_locker_id  - idx_customer_merchant <<composite>>  - idx_payment_method_id <<UNIQUE>>  Indexes:  --  network : VARCHAR(32)  payment_method_issuer_code_type : VARCHAR(32)  last_modified : TIMESTAMP <<not null>>  created_at : TIMESTAMP <<not null>>  locker_fingerprint_id : VARCHAR(64)  updated_by : VARCHAR(64)  payment_method_billing_address : JSONB <<encrypted>>  client_secret : VARCHAR(128)  network_transaction_id : VARCHAR(128)  status : VARCHAR(32) <<not null>>  customer_acceptance : JSONB  connector_mandate_details : JSONB  last_used_at : TIMESTAMP <<not null>>  locker_id : VARCHAR(128)  payment_method_data : BYTEA <<encrypted>>  metadata : JSONB  payment_method_issuer_code : VARCHAR(32)  payment_method_issuer : VARCHAR(64)  payment_method_type : VARCHAR(32)  payment_method : VARCHAR(32) <<not null>>  merchant_id : VARCHAR(64) <<FK>> <<not null>>  customer_id : VARCHAR(64) <<FK>> <<not null>>  --  *payment_method_id : VARCHAR(64) <<PK>>entity "payment_methods" as pm {}  - customer_id NOT NULL  Constraints:  --  - merchant_id → merchant_account(merchant_id)  Foreign Keys:  --  - idx_merchant_id  - idx_merchant_id_email <<UNIQUE>>  - idx_customer_id <<UNIQUE>>  Indexes:  --  updated_by : VARCHAR(64)  default_payment_method_id : VARCHAR(64)  address_id : VARCHAR(64)  connector_customer : JSONB  modified_at : TIMESTAMP <<not null>>  metadata : JSONB  created_at : TIMESTAMP <<not null>>  description : TEXT  phone_country_code : VARCHAR(4)  phone : VARCHAR(20) <<encrypted>>  email : VARCHAR(255) <<encrypted>>  name : VARCHAR(255) <<encrypted>>  merchant_id : VARCHAR(64) <<FK>> <<not null>>  --  *customer_id : VARCHAR(64) <<PK>>entity "customers" as customer {}  - sent_to_gateway IN (true, false)  - refund_status IN (refund_status_enum)  - refund_amount <= total_amount  - refund_amount > 0  Constraints:  --  - profile_id → business_profile(profile_id)  - merchant_connector_id → merchant_connector_account(merchant_connector_id)  - attempt_id → payment_attempt(attempt_id)  - merchant_id → merchant_account(merchant_id)  - payment_id → payment_intent(payment_id)  Foreign Keys:  --  - idx_profile_id  - idx_attempt_id  - idx_created_at  - idx_connector_refund_id  - idx_merchant_id  - idx_payment_id  - idx_refund_id <<UNIQUE>>  Indexes:  --  charges : JSONB  merchant_connector_id : VARCHAR(64) <<FK>>  updated_by : VARCHAR(64)  profile_id : VARCHAR(64) <<FK>>  refund_error_reason : TEXT  refund_reason : TEXT  attempt_id : VARCHAR(64) <<FK>> <<not null>>  description : TEXT  modified_at : TIMESTAMP <<not null>>  created_at : TIMESTAMP <<not null>>  refund_arn : VARCHAR(128)  metadata : JSONB  refund_error_code : VARCHAR(64)  refund_error_message : TEXT  sent_to_gateway : BOOLEAN <<not null>>  refund_status : VARCHAR(32) <<not null>>  refund_amount : BIGINT <<not null>>  currency : VARCHAR(3) <<not null>>  total_amount : BIGINT <<not null>>  refund_type : VARCHAR(32) <<not null>>  external_reference_id : VARCHAR(64)  connector_refund_id : VARCHAR(128)  connector : VARCHAR(64) <<not null>>  connector_transaction_id : VARCHAR(128) <<not null>>  merchant_id : VARCHAR(64) <<FK>> <<not null>>  payment_id : VARCHAR(64) <<FK>> <<not null>>  refund_id : VARCHAR(64) <<UNIQUE>> <<not null>>  --  *internal_reference_id : VARCHAR(64) <<PK>>entity "refund" as refund {}  - CHECK (amount_captured <= amount)  - status IN (attempt_status_enum)  - amount_capturable >= 0  - amount > 0  Constraints:  --  - profile_id → business_profile(profile_id)  - merchant_connector_id → merchant_connector_account(merchant_connector_id)  - merchant_id → merchant_account(merchant_id)  - payment_id → payment_intent(payment_id)  Foreign Keys:  --  - idx_status  - idx_profile_id  - idx_merchant_connector_id  - idx_created_at  - idx_preprocessing_step_id  - idx_connector_transaction_id <<UNIQUE>>  - idx_merchant_id_payment_id  - idx_merchant_id_connector  - idx_payment_id  - idx_attempt_id <<UNIQUE>>  Indexes:  --  card_discovery : JSONB  capture_before : TIMESTAMP  is_stored_credential : BOOLEAN  routing_approach : VARCHAR(32)  processor_transaction_data : JSONB  extended_authorization_last_applied_at : TIMESTAMP  extended_authorization_applied : BOOLEAN  request_extended_authorization : BOOLEAN  is_overcapture_enabled : BOOLEAN  amount_captured : BIGINT  authorized_amount : BIGINT  tokenization : JSONB  feature_metadata : JSONB  network_details : JSONB  network_decline_code : VARCHAR(64)  network_advice_code : VARCHAR(64)  network_error_message : TEXT  issuer_error_message : TEXT  issuer_error_code : VARCHAR(64)  charges : JSONB  connector_payment_data : JSONB  order_tax_amount : BIGINT  shipping_cost : BIGINT  connector_payment_id : VARCHAR(128)  external_reference_id : VARCHAR(64)  net_amount : BIGINT  unified_message : TEXT  unified_code : VARCHAR(64)  connector_mandate_detail : JSONB  network_transaction_id : VARCHAR(128)  authentication_applied : VARCHAR(32)  authentication_connector : VARCHAR(64)  external_three_ds_authentication_attempted : BOOLEAN  connector_request_reference_id : VARCHAR(128)  card_network : VARCHAR(32)  organization_id : VARCHAR(64)  profile_id : VARCHAR(64) <<FK>>  customer_acceptance : JSONB  client_version : VARCHAR(32)  client_source : VARCHAR(32)  charge_id : VARCHAR(64)  payment_method_billing_address_id : VARCHAR(64)  fingerprint_id : VARCHAR(64)  authentication_id : VARCHAR(64)  merchant_connector_id : VARCHAR(64) <<FK>>  encoded_data : TEXT  authentication_data : JSONB  updated_by : VARCHAR(64)  amount_capturable : BIGINT <<not null>>  connector_response_reference_id : VARCHAR(128)  multiple_capture_count : SMALLINT  error_reason : TEXT  mandate_details : JSONB  preprocessing_step_id : VARCHAR(64)  straight_through_algorithm : JSONB  business_sub_label : VARCHAR(64)  payment_method_data : BYTEA <<encrypted>>  payment_method_type : VARCHAR(32)  payment_experience : VARCHAR(32)  connector_metadata : JSONB  payment_token : VARCHAR(128)  error_code : VARCHAR(64)  browser_info : JSONB  mandate_id : VARCHAR(64)  amount_to_capture : BIGINT  cancellation_reason : TEXT  last_synced : TIMESTAMP  modified_at : TIMESTAMP <<not null>>  created_at : TIMESTAMP <<not null>>  authentication_type : VARCHAR(32)  confirm : BOOLEAN  capture_on : TIMESTAMP  capture_method : VARCHAR(32)  connector_transaction_id : VARCHAR(128)  payment_method : VARCHAR(32)  payment_method_id : VARCHAR(64)  tax_amount : BIGINT  surcharge_amount : BIGINT  offer_amount : BIGINT  error_message : TEXT  connector : VARCHAR(64)  save_to_locker : BOOLEAN  currency : VARCHAR(3)  amount : BIGINT <<not null>>  status : VARCHAR(32) <<not null>>  attempt_id : VARCHAR(64) <<UNIQUE>> (v1)  merchant_id : VARCHAR(64) <<FK>> <<not null>>  payment_id : VARCHAR(64) <<FK>> <<not null>>  --  *id : VARCHAR(64) <<PK>> (v2)  *attempt_id : VARCHAR(64) <<PK>> (v1)entity "payment_attempt" as attempt {}  - CHECK (amount_captured <= amount)  - attempt_count >= 0  - status IN (payment_status_enum)  - amount_captured >= 0  - amount > 0  Constraints:  --  - profile_id → business_profile(profile_id)  - customer_id → customers(customer_id)  - merchant_id → merchant_account(merchant_id)  Foreign Keys:  --  - idx_metadata_gin <<GIN>>  - idx_created_at  - idx_merchant_id_status  - idx_profile_id  - idx_status  - idx_customer_id  - idx_merchant_id_created_at  - idx_payment_id <<UNIQUE>>  Indexes:  --  tax_status : VARCHAR(32)  active_attempts_group_id : VARCHAR(64)  active_attempt_id_type : VARCHAR(32)  shipping_amount_tax : BIGINT  capture_method : VARCHAR(32)  authentication_type : VARCHAR(32)  is_iframe_redirection_enabled : BOOLEAN  payment_channel : VARCHAR(32)  routing_algorithm_id : VARCHAR(64)  force_3ds_challenge : BOOLEAN  shipping_cost : BIGINT  enable_overcapture : BOOLEAN  tax_on_surcharge : BIGINT  surcharge_amount : BIGINT  skip_external_tax_calculation : BOOLEAN  tax_details : JSONB  duty_amount : BIGINT  discount_amount : BIGINT  extended_return_url : TEXT  payment_link_config : JSONB  customer_present : VARCHAR(32)  apply_mit_exemption : BOOLEAN  order_date : TIMESTAMP  enable_partial_authorization : BOOLEAN  prerouting_algorithm : JSONB  is_payment_processor_token_flow : BOOLEAN  shipping_details : JSONB  merchant_order_reference_id : VARCHAR(64)  billing_details : JSONB  customer_details : JSONB  frm_metadata : JSONB  charges : JSONB  request_external_three_ds_authentication : BOOLEAN  session_expiry : TIMESTAMP  fingerprint_id : VARCHAR(64)  authorization_count : INTEGER  incremental_authorization_allowed : BOOLEAN  request_incremental_authorization : VARCHAR(32)  surcharge_applicable : BOOLEAN  updated_by : VARCHAR(64)  payment_confirm_source : VARCHAR(32)  payment_link_id : VARCHAR(64)  merchant_decision : VARCHAR(32)  profile_id : VARCHAR(64) <<FK>> <<not null>>  attempt_count : SMALLINT <<not null>>  feature_metadata : JSONB  connector_metadata : JSONB  allowed_payment_method_types : JSONB  order_details : JSONB  business_label : VARCHAR(64)  business_country : VARCHAR(2)  active_attempt_id : VARCHAR(64) (v1) / attempt_id : VARCHAR(64) (v2)  client_secret : VARCHAR(128) <<encrypted>>  off_session : BOOLEAN  setup_future_usage : VARCHAR(32)  last_synced : TIMESTAMP  modified_at : TIMESTAMP <<not null>>  created_at : TIMESTAMP <<not null>>  statement_descriptor_suffix : VARCHAR(255)  statement_descriptor_name : VARCHAR(255)  billing_address_id : VARCHAR(64)  shipping_address_id : VARCHAR(64)  connector_id : VARCHAR(64)  metadata : JSONB  return_url : TEXT  description : TEXT  customer_id : VARCHAR(64) <<FK>>  amount_captured : BIGINT  currency : VARCHAR(3) <<not null>>  amount : BIGINT <<not null>>  status : VARCHAR(32) <<not null>>  merchant_id : VARCHAR(64) <<FK>> <<not null>>  --  *id : VARCHAR(64) <<PK>> (v2)  *payment_id : VARCHAR(64) <<PK>> (v1)entity "payment_intent" as payment {}  - merchant_id → merchant_account(merchant_id)  Foreign Keys:  --  - idx_profile_name_merchant_id <<UNIQUE>>  - idx_merchant_id  Indexes:  --  modified_at : TIMESTAMP <<not null>>  created_at : TIMESTAMP <<not null>>  is_tax_connector_enabled : BOOLEAN  tax_connector_id : VARCHAR(64)  always_collect_shipping_details_from_wallet_connector : BOOLEAN  always_collect_billing_details_from_wallet_connector : BOOLEAN  order_fulfillment_time_origin : VARCHAR(32)  order_fulfillment_time : BIGINT  outgoing_webhook_custom_http_headers : JSONB  is_connector_agnostic_mit_enabled : BOOLEAN  collect_billing_details_from_wallet_connector : BOOLEAN  collect_shipping_details_from_wallet_connector : BOOLEAN  use_billing_as_payment_method_billing : BOOLEAN  extended_card_info_config : JSONB  is_extended_card_info_enabled : BOOLEAN  is_recon_enabled : BOOLEAN  payout_link_config : JSONB  authentication_connector_details : JSONB  session_expiry : BIGINT  payment_link_config : JSONB  applepay_verified_domains : TEXT[]  payout_routing_algorithm_id : VARCHAR(64)  frm_routing_algorithm_id : VARCHAR(64)  intent_fulfillment_time : BIGINT  routing_algorithm_id : VARCHAR(64)  metadata : JSONB  webhook_details : JSONB  redirect_to_merchant_with_http_post : BOOLEAN  payment_response_hash_key : TEXT  enable_payment_response_hash : BOOLEAN  return_url : TEXT  merchant_id : VARCHAR(64) <<FK>> <<not null>>  profile_name : VARCHAR(64) <<not null>>  --  *profile_id : VARCHAR(64) <<PK>>entity "business_profile" as profile {}  - created_at DEFAULT now()  - merchant_name NOT NULL  Constraints:  --  - idx_publishable_key <<UNIQUE>>  - idx_merchant_name  Indexes:  --  storage_scheme : VARCHAR(32)  publishable_key : VARCHAR(128)  modified_at : TIMESTAMP <<not null>>  created_at : TIMESTAMP <<not null>>  primary_business_details : JSONB  routing_algorithm : JSONB  metadata : JSONB  locker_id : VARCHAR(64)  merchant_webhook_config : JSONB  redirect_to_merchant_with_http_post : BOOLEAN  payment_response_hash_key : TEXT  enable_payment_response_hash : BOOLEAN  return_url : TEXT  merchant_details : JSONB  merchant_name : VARCHAR(255) <<not null>>  --  *merchant_id : VARCHAR(64) <<PK>>entity "merchant_account" as merchant {' Core Payment Entitiestitle Hyperswitch Database Schema - Entity Relationship Diagram!theme plain!theme plain
+skinparam linetype ortho
+
+title Hyperswitch Database Schema - Entity Relationship Diagram (Detailed)
+
+' Main Payment Tables
+entity "merchant_account" as merchant {
+  * **merchant_id** : VARCHAR(64) <<PK>>
+  --
+  merchant_name : VARCHAR(255) NOT NULL
+  api_key : VARCHAR(128) ENCRYPTED
+  merchant_details : JSONB
+  return_url : TEXT
+  enable_payment_response_hash : BOOLEAN
+  payment_response_hash_key : VARCHAR(255)
+  redirect_to_merchant_with_http_post : BOOLEAN
+  merchant_webhook_config : JSONB
+  sub_merchants_enabled : BOOLEAN
+  parent_merchant_id : VARCHAR(64) <<FK>>
+  publishable_key : VARCHAR(255)
+  storage_scheme : storage_scheme_enum
+  locker_id : VARCHAR(64)
+  metadata : JSONB
+  routing_algorithm : JSONB
+  primary_business_details : JSONB
+  created_at : TIMESTAMP DEFAULT NOW()
+  modified_at : TIMESTAMP DEFAULT NOW()
+  frm_routing_algorithm : JSONB
+  payout_routing_algorithm : JSONB
+  default_profile : VARCHAR(64) <<FK>>
+  payment_link_config : JSONB
+  pm_collect_link_config : JSONB
+  --
+  Indexes:
+  - idx_merchant_name
+  - idx_parent_merchant
+  - idx_publishable_key UNIQUE
+  --
+  Constraints:
+  - CHECK (merchant_id != parent_merchant_id)
+}
+
+entity "business_profile" as profile {
+  * **profile_id** : VARCHAR(64) <<PK>>
+  --
+  profile_name : VARCHAR(255) NOT NULL
+  merchant_id : VARCHAR(64) <<FK>> NOT NULL
+  return_url : TEXT
+  enable_payment_response_hash : BOOLEAN
+  payment_response_hash_key : VARCHAR(255)
+  redirect_to_merchant_with_http_post : BOOLEAN
+  webhook_details : JSONB
+  metadata : JSONB
+  routing_algorithm : JSONB
+  intent_fulfillment_time : BIGINT
+  frm_routing_algorithm : JSONB
+  payout_routing_algorithm : JSONB
+  is_recon_enabled : BOOLEAN
+  applepay_verified_domains : TEXT[]
+  payment_link_config : JSONB
+  session_expiry : BIGINT
+  authentication_connector_details : JSONB
+  payout_link_config : JSONB
+  is_connector_agnostic_mit_enabled : BOOLEAN
+  is_extended_card_info_enabled : BOOLEAN
+  extended_card_info_config : JSONB
+  use_billing_as_payment_method_billing : BOOLEAN
+  collect_shipping_details_from_wallet_connector : BOOLEAN
+  collect_billing_details_from_wallet_connector : BOOLEAN
+  is_tax_connector_enabled : BOOLEAN
+  is_network_tokenization_enabled : BOOLEAN
+  is_auto_retries_enabled : BOOLEAN
+  max_auto_retries_enabled : SMALLINT
+  created_at : TIMESTAMP DEFAULT NOW()
+  modified_at : TIMESTAMP DEFAULT NOW()
+  --
+  Indexes:
+  - idx_merchant_profile
+  - idx_profile_name
+}
+
+entity "payment_intent" as payment_intent {
+  * **payment_id** : VARCHAR(64) <<PK>>
+  --
+  merchant_id : VARCHAR(64) <<FK>> NOT NULL
+  status : intent_status_enum NOT NULL
+  amount : BIGINT NOT NULL
+  currency : currency_enum
+  amount_captured : BIGINT
+  customer_id : VARCHAR(64) <<FK>>
+  description : TEXT
+  return_url : TEXT
+  metadata : JSONB
+  connector_id : VARCHAR(64)
+  shipping_address_id : VARCHAR(64) <<FK>>
+  billing_address_id : VARCHAR(64) <<FK>>
+  statement_descriptor_name : VARCHAR(255)
+  statement_descriptor_suffix : VARCHAR(255)
+  created_at : TIMESTAMP DEFAULT NOW()
+  modified_at : TIMESTAMP DEFAULT NOW()
+  last_synced : TIMESTAMP
+  setup_future_usage : future_usage_enum
+  off_session : BOOLEAN
+  client_secret : VARCHAR(128) UNIQUE
+  active_attempt_id : VARCHAR(64) <<FK>>
+  business_country : country_alpha2_enum
+  business_label : VARCHAR(255)
+  order_details : JSONB
+  allowed_payment_method_types : JSONB
+  connector_metadata : JSONB
+  feature_metadata : JSONB
+  attempt_count : SMALLINT DEFAULT 1
+  profile_id : VARCHAR(64) <<FK>>
+  merchant_decision : VARCHAR(64)
+  payment_link_id : VARCHAR(64) <<FK>>
+  payment_confirm_source : payment_source_enum
+  updated_by : VARCHAR(255)
+  surcharge_applicable : BOOLEAN
+  request_incremental_authorization : incremental_authorization_enum
+  incremental_authorization_allowed : BOOLEAN
+  authorization_count : INTEGER
+  session_expiry : TIMESTAMP
+  fingerprint_id : VARCHAR(64)
+  request_external_three_ds_authentication : BOOLEAN
+  frm_metadata : JSONB
+  customer_details : JSONB
+  billing_address : JSONB
+  shipping_address : JSONB
+  capture_method : capture_method_enum
+  authentication_type : authentication_type_enum
+  prerouting_algorithm : JSONB
+  merchant_order_reference_id : VARCHAR(255)
+  billing_details : JSONB
+  shipping_details : JSONB
+  is_payment_processor_token_flow : BOOLEAN
+  organization_id : VARCHAR(64) <<FK>>
+  tax_details : JSONB
+  skip_external_tax_calculation : BOOLEAN
+  surcharge_amount : BIGINT
+  tax_on_surcharge : BIGINT
+  --
+  Indexes:
+  - idx_payment_merchant_created (merchant_id, created_at)
+  - idx_payment_customer (customer_id)
+  - idx_payment_status (status)
+  - idx_payment_profile (profile_id)
+  - idx_metadata_gin (metadata) USING GIN
+  - idx_client_secret UNIQUE
+  - idx_fingerprint (fingerprint_id)
+  --
+  Constraints:
+  - CHECK (amount > 0)
+  - CHECK (amount_captured <= amount)
+  - CHECK (attempt_count >= 1)
+}
+
+entity "payment_attempt" as payment_attempt {
+  * **attempt_id** : VARCHAR(64) <<PK>>
+  --
+  payment_id : VARCHAR(64) <<FK>> NOT NULL
+  merchant_id : VARCHAR(64) <<FK>> NOT NULL
+  attempt_id : VARCHAR(64) UNIQUE
+  status : attempt_status_enum NOT NULL
+  amount : BIGINT NOT NULL
+  currency : currency_enum
+  save_to_locker : BOOLEAN
+  connector : VARCHAR(64)
+  error_message : TEXT
+  offer_amount : BIGINT
+  surcharge_amount : BIGINT
+  tax_amount : BIGINT
+  payment_method_id : VARCHAR(64) <<FK>>
+  payment_method : payment_method_enum
+  connector_transaction_id : VARCHAR(255)
+  capture_method : capture_method_enum
+  capture_on : TIMESTAMP
+  confirm : BOOLEAN
+  authentication_type : authentication_type_enum
+  created_at : TIMESTAMP DEFAULT NOW()
+  modified_at : TIMESTAMP DEFAULT NOW()
+  last_synced : TIMESTAMP
+  cancellation_reason : VARCHAR(255)
+  amount_to_capture : BIGINT
+  mandate_id : VARCHAR(64) <<FK>>
+  browser_info : JSONB
+  error_code : VARCHAR(255)
+  payment_token : VARCHAR(255)
+  connector_metadata : JSONB
+  payment_experience : payment_experience_enum
+  payment_method_type : payment_method_type_enum
+  payment_method_data : BYTEA ENCRYPTED
+  business_sub_label : VARCHAR(255)
+  straight_through_algorithm : JSONB
+  preprocessing_step_id : VARCHAR(64)
+  error_reason : TEXT
+  multiple_capture_count : SMALLINT
+  connector_response_reference_id : VARCHAR(255)
+  amount_capturable : BIGINT DEFAULT 0
+  updated_by : VARCHAR(255)
+  authentication_data : JSONB
+  encoded_data : TEXT
+  merchant_connector_id : VARCHAR(64) <<FK>>
+  unified_code : VARCHAR(255)
+  unified_message : TEXT
+  net_amount : BIGINT
+  external_three_ds_authentication_attempted : BOOLEAN
+  authentication_connector : VARCHAR(64)
+  authentication_id : VARCHAR(64)
+  mandate_data : JSONB
+  payment_method_billing_address_id : VARCHAR(64) <<FK>>
+  fingerprint_id : VARCHAR(64)
+  charge_id : VARCHAR(64)
+  client_source : VARCHAR(64)
+  client_version : VARCHAR(64)
+  customer_acceptance : JSONB
+  profile_id : VARCHAR(64) <<FK>>
+  organization_id : VARCHAR(64) <<FK>>
+  card_network : VARCHAR(64)
+  --
+  Indexes:
+  - idx_attempt_payment (payment_id)
+  - idx_attempt_merchant_connector (merchant_id, connector, created_at)
+  - idx_connector_txn_id (connector_transaction_id) UNIQUE WHERE connector_transaction_id IS NOT NULL
+  - idx_attempt_status (status)
+  - idx_payment_method_id (payment_method_id)
+  --
+  Constraints:
+  - CHECK (amount > 0)
+  - CHECK (amount_to_capture <= amount)
+  - CHECK (amount_capturable <= amount)
+}
+
+entity "refund" as refund {
+  * **refund_id** : VARCHAR(64) <<PK>>
+  --
+  internal_reference_id : VARCHAR(64) UNIQUE NOT NULL
+  payment_id : VARCHAR(64) <<FK>> NOT NULL
+  merchant_id : VARCHAR(64) <<FK>> NOT NULL
+  connector_transaction_id : VARCHAR(255) NOT NULL
+  connector : VARCHAR(64) NOT NULL
+  connector_refund_id : VARCHAR(255)
+  external_reference_id : VARCHAR(255)
+  refund_type : refund_type_enum NOT NULL
+  total_amount : BIGINT NOT NULL
+  currency : currency_enum NOT NULL
+  refund_amount : BIGINT NOT NULL
+  refund_status : refund_status_enum NOT NULL
+  sent_to_gateway : BOOLEAN DEFAULT FALSE
+  refund_error_message : TEXT
+  refund_error_code : VARCHAR(255)
+  metadata : JSONB
+  refund_arn : VARCHAR(255)
+  created_at : TIMESTAMP DEFAULT NOW()
+  modified_at : TIMESTAMP DEFAULT NOW()
+  description : TEXT
+  attempt_id : VARCHAR(64) <<FK>> NOT NULL
+  refund_reason : TEXT
+  refund_error_reason : TEXT
+  profile_id : VARCHAR(64) <<FK>>
+  updated_by : VARCHAR(255)
+  merchant_connector_id : VARCHAR(64) <<FK>>
+  charges : JSONB
+  --
+  Indexes:
+  - idx_refund_payment (payment_id, created_at)
+  - idx_refund_merchant (merchant_id, created_at)
+  - idx_refund_internal_ref UNIQUE (internal_reference_id)
+  - idx_refund_connector_id (connector_refund_id)
+  - idx_refund_status (refund_status)
+  --
+  Constraints:
+  - CHECK (refund_amount > 0)
+  - CHECK (refund_amount <= total_amount)
+}
+
+entity "customers" as customers {
+  * **customer_id** : VARCHAR(64) <<PK>>
+  --
+  merchant_id : VARCHAR(64) <<FK>> NOT NULL
+  email : VARCHAR(255) ENCRYPTED
+  name : VARCHAR(255) ENCRYPTED
+  phone : VARCHAR(20) ENCRYPTED
+  phone_country_code : VARCHAR(10)
+  description : TEXT
+  created_at : TIMESTAMP DEFAULT NOW()
+  metadata : JSONB
+  connector_customer : JSONB
+  modified_at : TIMESTAMP DEFAULT NOW()
+  address_id : VARCHAR(64) <<FK>>
+  default_payment_method_id : VARCHAR(64) <<FK>>
+  updated_by : VARCHAR(255)
+  --
+  Indexes:
+  - idx_customer_merchant_email (merchant_id, email) UNIQUE
+  - idx_customer_metadata (metadata) USING GIN
+}
+
+entity "payment_methods" as payment_methods {
+  * **payment_method_id** : VARCHAR(64) <<PK>>
+  --
+  customer_id : VARCHAR(64) <<FK>> NOT NULL
+  merchant_id : VARCHAR(64) <<FK>> NOT NULL
+  payment_method : payment_method_enum NOT NULL
+  payment_method_type : payment_method_type_enum
+  payment_method_issuer : VARCHAR(64)
+  payment_method_issuer_code : payment_method_issuer_code_enum
+  metadata : JSONB
+  created_at : TIMESTAMP DEFAULT NOW()
+  last_modified : TIMESTAMP DEFAULT NOW()
+  payment_method_data : BYTEA ENCRYPTED
+  locker_id : VARCHAR(64)
+  last_used_at : TIMESTAMP DEFAULT NOW()
+  connector_mandate_details : JSONB
+  customer_acceptance : JSONB
+  status : payment_method_status_enum DEFAULT 'active'
+  network_transaction_id : VARCHAR(255)
+  client_secret : VARCHAR(128)
+  payment_method_billing_address_id : VARCHAR(64) <<FK>>
+  updated_by : VARCHAR(255)
+  locker_fingerprint_id : VARCHAR(64)
+  --
+  Indexes:
+  - idx_pm_customer_merchant (customer_id, merchant_id)
+  - idx_pm_last_used (last_used_at DESC)
+  - idx_pm_locker (locker_id)
+  - idx_pm_status (status)
+}
+
+entity "merchant_connector_account" as mca {
+  * **id** : SERIAL <<PK>>
+  --
+  merchant_id : VARCHAR(64) <<FK>> NOT NULL
+  connector_name : VARCHAR(64) NOT NULL
+  connector_account_details : BYTEA ENCRYPTED NOT NULL
+  test_mode : BOOLEAN
+  disabled : BOOLEAN
+  merchant_connector_id : VARCHAR(64) UNIQUE NOT NULL
+  payment_methods_enabled : JSONB
+  metadata : JSONB
+  connector_type : connector_type_enum NOT NULL
+  connector_label : VARCHAR(255)
+  business_country : country_alpha2_enum
+  business_label : VARCHAR(255)
+  business_sub_label : VARCHAR(255)
+  frm_configs : JSONB
+  created_at : TIMESTAMP DEFAULT NOW()
+  modified_at : TIMESTAMP DEFAULT NOW()
+  connector_webhook_details : JSONB
+  profile_id : VARCHAR(64) <<FK>>
+  applepay_verified_domains : TEXT[]
+  pm_auth_config : JSONB
+  status : connector_status_enum DEFAULT 'inactive'
+  connector_wallets_details : BYTEA ENCRYPTED
+  additional_merchant_data : BYTEA ENCRYPTED
+  --
+  Indexes:
+  - idx_mca_merchant (merchant_id)
+  - idx_mca_merchant_connector_id UNIQUE (merchant_connector_id)
+  - idx_mca_profile (profile_id)
+  - idx_mca_connector_label (merchant_id, connector_label)
+}
+
+entity "address" as address {
+  * **address_id** : VARCHAR(64) <<PK>>
+  --
+  city : VARCHAR(255)
+  country : country_alpha2_enum
+  line1 : VARCHAR(255) ENCRYPTED
+  line2 : VARCHAR(255) ENCRYPTED
+  line3 : VARCHAR(255) ENCRYPTED
+  state : VARCHAR(255) ENCRYPTED
+  zip : VARCHAR(16) ENCRYPTED
+  first_name : VARCHAR(255) ENCRYPTED
+  last_name : VARCHAR(255) ENCRYPTED
+  phone_number : VARCHAR(20) ENCRYPTED
+  country_code : VARCHAR(10)
+  created_at : TIMESTAMP DEFAULT NOW()
+  modified_at : TIMESTAMP DEFAULT NOW()
+  customer_id : VARCHAR(64) <<FK>>
+  merchant_id : VARCHAR(64) <<FK>> NOT NULL
+  payment_id : VARCHAR(64) <<FK>>
+  updated_by : VARCHAR(255)
+  email : VARCHAR(255) ENCRYPTED
+  --
+  Indexes:
+  - idx_address_customer (customer_id)
+  - idx_address_merchant (merchant_id)
+  - idx_address_payment (payment_id)
+}
+
+entity "mandate" as mandate {
+  * **mandate_id** : VARCHAR(64) <<PK>>
+  --
+  customer_id : VARCHAR(64) <<FK>> NOT NULL
+  merchant_id : VARCHAR(64) <<FK>> NOT NULL
+  payment_method_id : VARCHAR(64) <<FK>> NOT NULL
+  mandate_status : mandate_status_enum NOT NULL
+  mandate_type : mandate_type_enum NOT NULL
+  customer_accepted_at : TIMESTAMP
+  customer_ip_address : VARCHAR(45)
+  customer_user_agent : TEXT
+  network_transaction_id : VARCHAR(255)
+  previous_attempt_id : VARCHAR(64)
+  created_at : TIMESTAMP DEFAULT NOW()
+  mandate_amount : BIGINT
+  mandate_currency : currency_enum
+  amount_captured : BIGINT
+  connector : VARCHAR(64) NOT NULL
+  connector_mandate_id : VARCHAR(255)
+  start_date : TIMESTAMP
+  end_date : TIMESTAMP
+  metadata : JSONB
+  connector_mandate_ids : JSONB
+  merchant_connector_id : VARCHAR(64) <<FK>>
+  updated_by : VARCHAR(255)
+  original_payment_id : VARCHAR(64) <<FK>>
+  original_payment_authorized_amount : BIGINT
+  original_payment_authorized_currency : currency_enum
+  --
+  Indexes:
+  - idx_mandate_customer (customer_id)
+  - idx_mandate_merchant (merchant_id)
+  - idx_mandate_payment_method (payment_method_id)
+  - idx_mandate_connector_id (connector_mandate_id)
+}
+
+entity "dispute" as dispute {
+  * **dispute_id** : VARCHAR(64) <<PK>>
+  --
+  amount : BIGINT NOT NULL
+  currency : currency_enum NOT NULL
+  dispute_stage : dispute_stage_enum NOT NULL
+  dispute_status : dispute_status_enum NOT NULL
+  payment_id : VARCHAR(64) <<FK>> NOT NULL
+  attempt_id : VARCHAR(64) <<FK>>
+  merchant_id : VARCHAR(64) <<FK>> NOT NULL
+  connector_status : VARCHAR(128) NOT NULL
+  connector_dispute_id : VARCHAR(128) NOT NULL
+  connector_reason : TEXT
+  connector_reason_code : VARCHAR(128)
+  challenge_required_by : TIMESTAMP
+  connector_created_at : TIMESTAMP
+  connector_updated_at : TIMESTAMP
+  created_at : TIMESTAMP DEFAULT NOW()
+  modified_at : TIMESTAMP DEFAULT NOW()
+  connector : VARCHAR(64) NOT NULL
+  evidence : JSONB
+  profile_id : VARCHAR(64) <<FK>>
+  merchant_connector_id : VARCHAR(64) <<FK>>
+  dispute_amount : BIGINT NOT NULL
+  --
+  Indexes:
+  - idx_dispute_payment (payment_id)
+  - idx_dispute_merchant (merchant_id, created_at)
+  - idx_dispute_connector_id (connector_dispute_id) UNIQUE
+  - idx_dispute_status (dispute_status)
+}
+
+' Relationships
+merchant ||--o{ profile : "has profiles"
+merchant ||--o{ payment_intent : "creates payments"
+merchant ||--o{ customers : "has customers"
+merchant ||--o{ mca : "has connector accounts"
+merchant ||--o{ address : "has addresses"
+
+profile ||--o{ payment_intent : "payment uses"
+profile ||--o{ payment_attempt : "attempt uses"
+profile ||--o{ mca : "connector for"
+
+payment_intent ||--o{ payment_attempt : "has attempts"
+payment_intent ||--o{ refund : "has refunds"
+payment_intent }o--|| customers : "belongs to"
+payment_intent }o--|| address : "billing address"
+payment_intent }o--|| address : "shipping address"
+
+payment_attempt }o--|| payment_intent : "attempts"
+payment_attempt }o--|| payment_methods : "uses method"
+payment_attempt }o--|| mca : "via connector"
+payment_attempt }o--|| mandate : "mandate"
+payment_attempt ||--o{ refund : "refunded via"
+payment_attempt }o--|| address : "billing address"
+
+refund }o--|| payment_intent : "refunds"
+refund }o--|| payment_attempt : "refund attempt"
+refund }o--|| mca : "via connector"
+
+customers ||--o{ payment_methods : "owns methods"
+customers ||--o{ payment_intent : "makes payments"
+customers ||--o{ address : "has addresses"
+customers ||--o{ mandate : "has mandates"
+customers }o--|| payment_methods : "default method"
+
+payment_methods }o--|| customers : "belongs to"
+payment_methods }o--|| address : "billing address"
+payment_methods ||--o{ mandate : "used in mandates"
+
+mandate }o--|| customers : "customer"
+mandate }o--|| payment_methods : "payment method"
+mandate }o--|| mca : "connector"
+mandate }o--|| payment_intent : "original payment"
+
+dispute }o--|| payment_intent : "disputes"
+dispute }o--|| payment_attempt : "attempt"
+dispute }o--|| mca : "via connector"
+
+@enduml

@@ -1,0 +1,247 @@
+@startuml sequence-payment-create-detailed
+!theme plain
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+title Hyperswitch Payment Creation Flow - Detailed Sequence
+
+actor "Merchant" as merchant
+participant "API Gateway\n(Actix-web)" as api
+participant "Auth Middleware\ncrates/router/src/middleware.rs" as auth
+participant "Payment Routes\ncrates/router/src/routes/payments.rs" as routes
+participant "Payments Core\ncrates/router/src/core/payments.rs" as core
+participant "Payment Service\n(Business Logic)" as service
+participant "Routing Engine\ncrates/router/src/core/routing/" as routing
+participant "Validation\n(Domain Rules)" as validation
+participant "Payment Repository\ncrates/storage_impl/" as repo
+database "PostgreSQL" as db
+database "Redis Cache" as redis
+participant "Connector Dispatcher\ncrates/router/src/connector/" as dispatcher
+participant "Stripe Connector\ncrates/hyperswitch_connectors/src/connectors/stripe/" as stripe
+participant "External API\n(Stripe)" as stripe_api
+
+== Request Reception & Authentication ==
+
+merchant -> api: POST /payments\n{"amount": 5000, "currency": "USD"}
+activate api
+
+api -> auth: Validate API Key
+activate auth
+auth -> redis: Get merchant account (cached)
+activate redis
+redis --> auth: Merchant account data
+deactivate redis
+auth -> auth: Verify API key hash
+auth --> api: Authenticated ✓
+deactivate auth
+
+api -> routes: payments_create(Json<PaymentRequest>)
+activate routes
+
+== Request Validation & Deserialization ==
+
+routes -> routes: Deserialize PaymentRequest\n(api_models::PaymentsRequest)
+routes -> routes: Validate required fields
+
+routes -> core: payments_core_create(\n  state, merchant_account,\n  key_store, req\n)
+activate core
+
+note right of core
+  Core orchestration starts
+  File: crates/router/src/core/payments.rs
+  Function: payments_core_create()
+end note
+
+== Business Logic Preparation ==
+
+core -> validation: Validate payment request
+activate validation
+validation -> validation: Check amount > 0
+validation -> validation: Validate currency code
+validation -> validation: Check merchant limits
+validation --> core: Validation passed ✓
+deactivate validation
+
+core -> service: create_payment_intent(merchant_id, req)
+activate service
+
+== Create Payment Intent ==
+
+service -> service: Build PaymentIntentNew {\n  payment_id: generate_uuid(),\n  merchant_id,\n  amount,\n  currency,\n  status: RequiresPaymentMethod\n}
+
+service -> repo: insert_payment_intent(intent_new)
+activate repo
+repo -> db: INSERT INTO payment_intent\n(payment_id, merchant_id, amount, currency, status, ...)\nVALUES (...)
+activate db
+db --> repo: Row inserted (payment_intent)
+deactivate db
+repo --> service: PaymentIntent
+deactivate repo
+
+note right of service
+  Initial status: RequiresPaymentMethod
+  If payment_method_data provided:
+    status → RequiresConfirmation
+end note
+
+== Create Payment Attempt ==
+
+service -> service: Build PaymentAttemptNew {\n  attempt_id: generate_uuid(),\n  payment_id,\n  merchant_id,\n  status: Started,\n  amount\n}
+
+service -> repo: insert_payment_attempt(attempt_new)
+activate repo
+repo -> db: INSERT INTO payment_attempt\n(attempt_id, payment_id, status, amount, ...)\nVALUES (...)
+activate db
+db --> repo: Row inserted (payment_attempt)
+deactivate db
+repo --> service: PaymentAttempt
+deactivate repo
+
+== Update Intent with Active Attempt ==
+
+service -> repo: update_payment_intent(\n  payment_id,\n  PaymentIntentUpdate {\n    active_attempt_id: Some(attempt_id)\n  }\n)
+activate repo
+repo -> db: UPDATE payment_intent\nSET active_attempt_id = $1, modified_at = now()\nWHERE payment_id = $2
+activate db
+db --> repo: Updated
+deactivate db
+repo --> service: Updated PaymentIntent
+deactivate repo
+
+service --> core: (PaymentIntent, PaymentAttempt)
+deactivate service
+
+== Routing Decision (if payment method provided) ==
+
+alt Payment Method Data Provided
+
+  core -> routing: decide_connector(\n  merchant_id,\n  payment_method,\n  currency,\n  amount\n)
+  activate routing
+  
+  routing -> redis: Get routing config (cached)
+  activate redis
+  redis --> routing: RoutingAlgorithm
+  deactivate redis
+  
+  routing -> routing: Apply routing rules:\n  1. Filter eligible connectors\n  2. Check payment method support\n  3. Check currency support\n  4. Apply merchant preferences
+  
+  routing -> repo: Get connector success rates\n  (if dynamic routing)
+  activate repo
+  repo -> db: SELECT success_rate, volume\nFROM dynamic_routing_stats\nWHERE merchant_id = $1
+  activate db
+  db --> repo: Stats
+  deactivate db
+  repo --> routing: Success rates
+  deactivate repo
+  
+  routing -> routing: Calculate connector scores:\n  score = (success_rate * 0.7) + (volume * 0.3)
+  
+  routing -> routing: Sort by score DESC
+  
+  routing --> core: Selected Connectors:\n  [Stripe (primary), PayPal (fallback)]
+  deactivate routing
+  
+  note right of routing
+    Routing Algorithm:
+    - Static: Pre-configured order
+    - Dynamic: ML-based selection
+    - Volume: Distribute by volume splits
+    File: crates/router/src/core/routing/algorithms.rs
+  end note
+
+== Connector Integration ==
+
+  core -> dispatcher: call_connector(\n  connector: "stripe",\n  operation: Authorize,\n  payment_data\n)
+  activate dispatcher
+  
+  dispatcher -> dispatcher: Get connector instance:\nBoxedConnector = Stripe::new()
+  
+  dispatcher -> stripe: authorize_payment(\n  RouterData {\n    payment_id,\n    amount,\n    currency,\n    payment_method_data\n  }\n)
+  activate stripe
+  
+  stripe -> stripe: Transform to Stripe API format:\nPaymentIntentRequest {\n  amount: 5000,\n  currency: "usd",\n  payment_method,\n  confirm: true\n}
+  
+  stripe -> stripe_api: POST /v1/payment_intents\nAuthorization: Bearer sk_test_...
+  activate stripe_api
+  stripe_api --> stripe: 200 OK\n{\n  "id": "pi_xxx",\n  "status": "succeeded",\n  "amount": 5000\n}
+  deactivate stripe_api
+  
+  stripe -> stripe: Transform response:\nPaymentResponse {\n  status: Charged,\n  connector_transaction_id: "pi_xxx"\n}
+  
+  stripe --> dispatcher: ConnectorResponse
+  deactivate stripe
+  
+  dispatcher --> core: PaymentResponse
+  deactivate dispatcher
+
+== Update Payment Attempt with Response ==
+
+  core -> service: update_attempt_with_response(\n  attempt_id,\n  connector_response\n)
+  activate service
+  
+  service -> repo: update_payment_attempt(\n  attempt_id,\n  PaymentAttemptUpdate {\n    status: Charged,\n    connector_transaction_id: Some("pi_xxx"),\n    connector: Some("stripe"),\n    modified_at: now()\n  }\n)
+  activate repo
+  repo -> db: UPDATE payment_attempt\nSET status = 'charged',\n    connector_transaction_id = 'pi_xxx',\n    connector = 'stripe',\n    modified_at = now()\nWHERE attempt_id = $1
+  activate db
+  db --> repo: Updated
+  deactivate db
+  repo --> service: Updated PaymentAttempt
+  deactivate repo
+  
+  service --> core: Updated
+  deactivate service
+
+== Update Payment Intent Status ==
+
+  core -> service: update_intent_status(\n  payment_id,\n  new_status: Succeeded\n)
+  activate service
+  
+  service -> repo: update_payment_intent(\n  payment_id,\n  PaymentIntentUpdate {\n    status: Succeeded,\n    amount_captured: Some(5000),\n    modified_at: now()\n  }\n)
+  activate repo
+  repo -> db: UPDATE payment_intent\nSET status = 'succeeded',\n    amount_captured = 5000,\n    modified_at = now()\nWHERE payment_id = $1
+  activate db
+  db --> repo: Updated
+  deactivate db
+  repo --> service: Updated PaymentIntent
+  deactivate repo
+  
+  service --> core: Updated
+  deactivate service
+  
+end
+
+== Cache & Analytics ==
+
+core -> redis: Cache payment result\n(for idempotency)
+activate redis
+redis --> core: Cached
+deactivate redis
+
+core -> core: Publish analytics event:\nPaymentCreated {\n  payment_id,\n  merchant_id,\n  amount,\n  status,\n  connector\n}
+
+== Response Construction ==
+
+core -> core: Build PaymentResponse {\n  payment_id,\n  status: "succeeded",\n  amount: 5000,\n  currency: "USD",\n  connector_transaction_id: "pi_xxx"\n}
+
+core --> routes: PaymentResponse
+deactivate core
+
+routes -> routes: Serialize to JSON
+
+routes --> api: 200 OK\n{\n  "payment_id": "pay_xxx",\n  "status": "succeeded",\n  "amount": 5000,\n  "currency": "USD"\n}
+deactivate routes
+
+api --> merchant: JSON Response
+deactivate api
+
+note over merchant, stripe_api
+  Total Latency Breakdown:
+  - API Gateway: ~5ms
+  - Auth & Validation: ~10ms
+  - DB Operations: ~15ms (3 queries)
+  - Routing Decision: ~5ms
+  - Connector Call: ~200-500ms (external)
+  - Total: ~235-535ms
+end note
+
+@enduml

@@ -1,0 +1,195 @@
+@startuml state-payment-intent
+!theme plain
+skinparam state {
+  BackgroundColor<<terminal>> LightGreen
+  BackgroundColor<<error>> LightCoral
+  BackgroundColor<<pending>> LightYellow
+}
+
+title Payment Intent State Machine - Complete Lifecycle
+
+[*] --> RequiresPaymentMethod : create()
+
+state "Requires Payment Method" as RequiresPaymentMethod <<pending>> {
+  RequiresPaymentMethod : Entry: Payment created without payment method
+  RequiresPaymentMethod : Actions:
+  RequiresPaymentMethod : - Wait for payment method
+  RequiresPaymentMethod : - Customer can select payment method
+}
+
+state "Requires Confirmation" as RequiresConfirmation <<pending>> {
+  RequiresConfirmation : Entry: Payment method attached
+  RequiresConfirmation : Actions:
+  RequiresConfirmation : - Validate payment method
+  RequiresConfirmation : - Prepare for authorization
+}
+
+state "Processing" as Processing <<pending>> {
+  Processing : Entry: Payment confirmed
+  Processing : Actions:
+  Processing : - Send to connector
+  Processing : - Wait for connector response
+  Processing : - Handle async responses
+  Processing : Timeout: 30 minutes
+}
+
+state "Requires Customer Action" as RequiresCustomerAction <<pending>> {
+  RequiresCustomerAction : Entry: 3DS/OTP required
+  RequiresCustomerAction : Actions:
+  RequiresCustomerAction : - Send redirect URL to customer
+  RequiresCustomerAction : - Wait for customer completion
+  RequiresCustomerAction : Timeout: 15 minutes
+}
+
+state "Requires Merchant Action" as RequiresMerchantAction <<pending>> {
+  RequiresMerchantAction : Entry: Merchant intervention needed
+  RequiresMerchantAction : Actions:
+  RequiresMerchantAction : - Notify merchant
+  RequiresMerchantAction : - Wait for merchant decision
+}
+
+state "Requires Capture" as RequiresCapture <<pending>> {
+  RequiresCapture : Entry: Authorization successful (manual capture)
+  RequiresCapture : Actions:
+  RequiresCapture : - Hold authorized amount
+  RequiresCapture : - Wait for capture request
+  RequiresCapture : Auto-void after: capture_before timestamp
+}
+
+state "Partially Captured" as PartiallyCaptured <<pending>> {
+  PartiallyCaptured : Entry: Partial amount captured
+  PartiallyCaptured : Actions:
+  PartiallyCaptured : - Track captured amount
+  PartiallyCaptured : - Allow additional captures
+}
+
+state "Partially Captured And Capturable" as PartiallyCapturedAndCapturable <<pending>> {
+  PartiallyCapturedAndCapturable : Entry: Partial capture with remaining capturable
+  PartiallyCapturedAndCapturable : Actions:
+  PartiallyCapturedAndCapturable : - Track amounts
+  PartiallyCapturedAndCapturable : - Allow more captures
+}
+
+state "Succeeded" as Succeeded <<terminal>> {
+  Succeeded : Entry: Payment completed successfully
+  Succeeded : Actions:
+  Succeeded : - Release funds to merchant
+  Succeeded : - Send success webhook
+  Succeeded : - Allow refunds
+  Succeeded : Final State: ✓
+}
+
+state "Failed" as Failed <<error>> {
+  Failed : Entry: Payment failed
+  Failed : Reasons:
+  Failed : - Insufficient funds
+  Failed : - Invalid card
+  Failed : - Fraud detected
+  Failed : - Connector error
+  Failed : Final State: ✗
+}
+
+state "Cancelled" as Cancelled <<error>> {
+  Cancelled : Entry: Payment cancelled
+  Cancelled : Reasons:
+  Cancelled : - Customer cancelled
+  Cancelled : - Merchant cancelled
+  Cancelled : - Timeout
+  Cancelled : Final State: ✗
+}
+
+' Transitions from RequiresPaymentMethod
+RequiresPaymentMethod --> RequiresConfirmation : add_payment_method()
+RequiresPaymentMethod --> Cancelled : cancel()
+RequiresPaymentMethod --> Cancelled : timeout (24h)
+
+' Transitions from RequiresConfirmation
+RequiresConfirmation --> Processing : confirm()
+RequiresConfirmation --> Cancelled : cancel()
+RequiresConfirmation --> RequiresPaymentMethod : update_payment_method()
+
+' Transitions from Processing
+Processing --> RequiresCustomerAction : 3ds_required()
+Processing --> RequiresMerchantAction : merchant_action_required()
+Processing --> RequiresCapture : authorized()\n[capture_method=manual]
+Processing --> Succeeded : authorized()\n[capture_method=automatic]
+Processing --> Succeeded : charged()
+Processing --> Failed : authorization_failed()
+Processing --> Failed : charge_failed()
+Processing --> Cancelled : cancel()
+Processing --> Failed : timeout()
+
+' Transitions from RequiresCustomerAction
+RequiresCustomerAction --> Processing : customer_action_completed()
+RequiresCustomerAction --> Failed : authentication_failed()
+RequiresCustomerAction --> Cancelled : cancel()
+RequiresCustomerAction --> Failed : timeout()
+
+' Transitions from RequiresMerchantAction
+RequiresMerchantAction --> Processing : merchant_decision_provided()
+RequiresMerchantAction --> Cancelled : merchant_cancelled()
+RequiresMerchantAction --> Failed : timeout()
+
+' Transitions from RequiresCapture
+RequiresCapture --> Succeeded : capture()\n[full_amount]
+RequiresCapture --> PartiallyCaptured : capture()\n[partial_amount, final=true]
+RequiresCapture --> PartiallyCapturedAndCapturable : capture()\n[partial_amount, final=false]
+RequiresCapture --> Cancelled : void()
+RequiresCapture --> Cancelled : auto_void()\n[capture_before expired]
+
+' Transitions from PartiallyCaptured
+PartiallyCaptured --> Succeeded : capture_remaining()
+
+' Transitions from PartiallyCapturedAndCapturable
+PartiallyCapturedAndCapturable --> PartiallyCaptured : capture()\n[final=true]
+PartiallyCapturedAndCapturable --> Succeeded : capture_remaining()
+PartiallyCapturedAndCapturable --> PartiallyCapturedAndCapturable : capture()\n[additional partial]
+
+' Terminal states
+Succeeded --> [*]
+Failed --> [*]
+Cancelled --> [*]
+
+note right of Processing
+  **Retry Logic:**
+  - Max 3 attempts
+  - Exponential backoff
+  - Fallback to next connector
+  
+  **Idempotency:**
+  - Use idempotency_key
+  - Cache responses (24h)
+end note
+
+note right of RequiresCapture
+  **Capture Rules:**
+  - Auto-void after capture_before
+  - Manual capture window: 7 days
+  - Multiple captures allowed if:
+    - capture_method = manual_multiple
+    - enable_overcapture = true
+end note
+
+note bottom of Succeeded
+  **Post-Success Operations:**
+  - Refunds allowed
+  - Disputes possible
+  - Settlement initiated
+  - Analytics tracked
+end note
+
+note bottom of Failed
+  **Failure Handling:**
+  - Error code stored
+  - Retry with different PM possible
+  - Merchant notified
+  - Analytics tracked
+end note
+
+legend right
+  |<back:LightGreen>   </back>| Terminal State (Success) |
+  |<back:LightCoral>   </back>| Terminal State (Error) |
+  |<back:LightYellow>   </back>| Pending State |
+endlegend
+
+@enduml
